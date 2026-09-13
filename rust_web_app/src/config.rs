@@ -1,4 +1,5 @@
 use anyhow::Context;
+use chrono::NaiveTime;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -18,6 +19,19 @@ pub struct AppConfig {
     pub log: LogConfig,
     pub feishu: FeishuConfig,
     pub pushplus: PushplusConfig,
+    pub alive_ping: AlivePingConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct AlivePingConfig {
+    pub enabled: bool,
+    /// 东八区每日发送时刻，如 `09:00`
+    pub time: String,
+    pub title: String,
+    pub message: String,
+    #[serde(skip)]
+    pub send_time: NaiveTime,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -100,6 +114,7 @@ impl Default for AppConfig {
             log: LogConfig::default(),
             feishu: FeishuConfig::default(),
             pushplus: PushplusConfig::default(),
+            alive_ping: AlivePingConfig::default(),
         }
     }
 }
@@ -185,6 +200,18 @@ impl Default for PushplusConfig {
     }
 }
 
+impl Default for AlivePingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            time: "09:00".into(),
+            title: "每日签到".into(),
+            message: "我还活着，一切正常。".into(),
+            send_time: NaiveTime::from_hms_opt(9, 0, 0).expect("09:00"),
+        }
+    }
+}
+
 impl AppConfig {
     pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let path = path.as_ref();
@@ -206,6 +233,8 @@ impl AppConfig {
         cfg.http_client.timeout_secs = cfg.http_client.timeout_secs.max(1);
         cfg.feishu.alert_cooldown_secs = cfg.feishu.alert_cooldown_secs.max(60);
         cfg.pushplus.alert_cooldown_secs = cfg.pushplus.alert_cooldown_secs.max(60);
+        cfg.alive_ping.send_time = parse_hhmm_time(&cfg.alive_ping.time)
+            .unwrap_or_else(|| NaiveTime::from_hms_opt(9, 0, 0).expect("09:00"));
         cfg
     }
 
@@ -228,4 +257,11 @@ pub fn get() -> &'static AppConfig {
 
 pub fn default_config_path() -> PathBuf {
     PathBuf::from("config.toml")
+}
+
+fn parse_hhmm_time(s: &str) -> Option<NaiveTime> {
+    let s = s.trim();
+    NaiveTime::parse_from_str(s, "%H:%M")
+        .or_else(|_| NaiveTime::parse_from_str(s, "%H:%M:%S"))
+        .ok()
 }

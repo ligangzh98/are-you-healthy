@@ -1,3 +1,4 @@
+mod alive_ping;
 mod api;
 mod checkpoint_db;
 mod checkpoints;
@@ -41,6 +42,7 @@ async fn main() -> anyhow::Result<()> {
     history::spawn_cleanup_job(pool.clone(), history_retention);
 
     checker::spawn_scheduler(pool.clone(), client.clone(), cfg.scheduler.tick_secs);
+    alive_ping::spawn_job(client.clone());
 
     let assets = cfg.assets_dir();
     let index = assets.join("index.html");

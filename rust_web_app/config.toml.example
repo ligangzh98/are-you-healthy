@@ -42,3 +42,10 @@ alert_cooldown_secs = 300
 token = ""
 enabled = false
 alert_cooldown_secs = 300
+
+[alive_ping]
+# 每天在东八区指定时刻发一条签到（走已启用的飞书 / PushPlus）
+enabled = false
+time = "09:00"
+title = "每日签到"
+message = "我还活着，一切正常。"

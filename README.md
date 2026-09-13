@@ -8,6 +8,7 @@
 - 响应体检查点：包含、相等、不包含、正则匹配 / 正则不匹配
 - 飞书自定义机器人 Webhook 告警（首次故障、冷却期内重复提醒、恢复通知）
 - PushPlus（推送加）Token 告警，与飞书可并行启用
+- 每日存活签到：东八区定时一条消息（`alive_ping`，复用已启用的告警通道）
 - 每 5 秒调度一次，按各条目 `interval_secs` 执行探测
 - 每次检测写入历史记录，可按条目分页查询
 - 后台定时清理过期/超量历史（可配置）
@@ -56,6 +57,7 @@ git push origin v0.1.0
 | `log` | `level` | `info` | 日志级别（可被 `RUST_LOG` 覆盖） |
 | `feishu` | `webhook_url` / `enabled` / `alert_cooldown_secs` | 空 / `false` / `300` | 飞书机器人告警 |
 | `pushplus` | `token` / `enabled` / `alert_cooldown_secs` | 空 / `false` / `300` | PushPlus 告警 |
+| `alive_ping` | `enabled` / `time` / `title` / `message` | `false` / `09:00` / … | 东八区每日签到消息 |
 
 告警通道仅在 `config.toml` 中配置，程序启动时加载，**管理页不提供编辑入口**。
 
