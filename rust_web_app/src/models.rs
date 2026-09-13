@@ -84,3 +84,25 @@ pub struct CheckHistoryResponse {
     pub limit: u32,
     pub offset: u32,
 }
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct AlertDelivery {
+    pub id: i64,
+    pub kind: String,
+    pub channel: String,
+    pub status: String,
+    pub title: Option<String>,
+    pub message: String,
+    pub error: Option<String>,
+    pub check_id: Option<i64>,
+    pub check_name: Option<String>,
+    pub sent_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AlertHistoryResponse {
+    pub items: Vec<AlertDelivery>,
+    pub total: i64,
+    pub limit: u32,
+    pub offset: u32,
+}

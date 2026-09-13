@@ -74,6 +74,11 @@ pub async fn cleanup(pool: &SqlitePool, retention: &HistoryRetention) -> Result<
         deleted += result.rows_affected();
     }
 
+    if retention.retention_days > 0 {
+        let cutoff = (Utc::now() - Duration::days(retention.retention_days as i64)).to_rfc3339();
+        deleted += crate::alert_history::cleanup_by_age(pool, &cutoff).await?;
+    }
+
     Ok(deleted)
 }
 

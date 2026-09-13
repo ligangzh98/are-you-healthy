@@ -277,6 +277,37 @@ select {
   display: none !important;
 }
 
+.status-pill {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-pill.ok {
+  background: color-mix(in srgb, var(--up) 25%, transparent);
+  color: var(--up);
+}
+
+.status-pill.failed {
+  background: color-mix(in srgb, var(--down) 25%, transparent);
+  color: var(--down);
+}
+
+.alert-msg-cell {
+  max-width: 280px;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.alert-err {
+  color: var(--down);
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
 .toast {
   position: fixed;
   bottom: 1.5rem;

@@ -1,27 +1,28 @@
+use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
 use crate::config;
 use crate::feishu;
-use crate::pushplus;
 use chrono::{FixedOffset, NaiveTime, Utc};
+use sqlx::SqlitePool;
 use std::path::PathBuf;
 use std::time::Duration;
 use tracing::{info, warn};
 
 const EAST8_SECS: i32 = 8 * 3600;
 
-pub fn spawn_job(client: reqwest::Client) {
+pub fn spawn_job(client: reqwest::Client, pool: SqlitePool) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(60));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             interval.tick().await;
-            if let Err(e) = tick(&client).await {
+            if let Err(e) = tick(&pool, &client).await {
                 warn!("alive ping tick: {}", e);
             }
         }
     });
 }
 
-async fn tick(client: &reqwest::Client) -> anyhow::Result<()> {
+async fn tick(pool: &SqlitePool, client: &reqwest::Client) -> anyhow::Result<()> {
     let cfg = config::get();
     let ping = &cfg.alive_ping;
     if !ping.enabled {
@@ -39,7 +40,7 @@ async fn tick(client: &reqwest::Client) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let sent = send_ping(client, cfg, &ping.title, &ping.message).await?;
+    let sent = send_ping(pool, client, cfg, &ping.title, &ping.message).await?;
     if !sent {
         return Ok(());
     }
@@ -49,6 +50,7 @@ async fn tick(client: &reqwest::Client) -> anyhow::Result<()> {
 }
 
 async fn send_ping(
+    pool: &SqlitePool,
     client: &reqwest::Client,
     cfg: &config::AppConfig,
     title: &str,
@@ -65,19 +67,32 @@ async fn send_ping(
         return Ok(false);
     }
 
+    let ctx = AlertLogContext {
+        kind: "alive_ping",
+        check_id: None,
+        check_name: None,
+    };
+
     let mut any_ok = false;
 
     if feishu_on {
-        match feishu::send_text_alert(client, cfg.feishu.webhook_url.trim(), &feishu_body).await {
-            Ok(()) => any_ok = true,
-            Err(e) => warn!("alive ping feishu failed: {}", e),
+        if deliver_feishu(pool, client, &ctx, cfg.feishu.webhook_url.trim(), &feishu_body).await {
+            any_ok = true;
         }
     }
 
     if push_on {
-        match pushplus::send_message(client, cfg.pushplus.token.trim(), title, &push_body).await {
-            Ok(()) => any_ok = true,
-            Err(e) => warn!("alive ping pushplus failed: {}", e),
+        if deliver_pushplus(
+            pool,
+            client,
+            &ctx,
+            cfg.pushplus.token.trim(),
+            title,
+            &push_body,
+        )
+        .await
+        {
+            any_ok = true;
         }
     }
 

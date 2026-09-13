@@ -3,11 +3,11 @@ use crate::checkpoints;
 use crate::checker;
 use crate::config;
 use crate::feishu;
+use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
 use crate::models::{
-    CheckHistoryResponse, CheckRun, CheckpointsResponse, CreateHealthCheck,
-    CheckpointInput, HealthCheck, ReplaceCheckpointsBody, UpdateHealthCheck,
+    AlertDelivery, AlertHistoryResponse, CheckHistoryResponse, CheckRun, CheckpointsResponse,
+    CreateHealthCheck, CheckpointInput, HealthCheck, ReplaceCheckpointsBody, UpdateHealthCheck,
 };
-use crate::pushplus;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -37,6 +37,7 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/feishu/test", post(test_feishu))
         .route("/api/pushplus/test", post(test_pushplus))
+        .route("/api/alerts/history", get(list_alert_history))
 }
 
 async fn list_checks(State(state): State<AppState>) -> Result<Json<Vec<HealthCheck>>, AppError> {
@@ -235,6 +236,34 @@ async fn run_check_now(
     get_check(State(state), Path(id)).await
 }
 
+async fn list_alert_history(
+    State(state): State<AppState>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<AlertHistoryResponse>, AppError> {
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let offset = query.offset.unwrap_or(0);
+
+    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM alert_deliveries")
+        .fetch_one(&state.pool)
+        .await?;
+
+    let items = sqlx::query_as::<_, AlertDelivery>(
+        "SELECT id, kind, channel, status, title, message, error, check_id, check_name, sent_at \
+         FROM alert_deliveries ORDER BY sent_at DESC LIMIT ? OFFSET ?",
+    )
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(&state.pool)
+    .await?;
+
+    Ok(Json(AlertHistoryResponse {
+        items,
+        total: total.0,
+        limit,
+        offset,
+    }))
+}
+
 async fn delete_check(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -264,9 +293,14 @@ async fn test_feishu(State(state): State<AppState>) -> Result<StatusCode, AppErr
         feishu::format_time_east8()
     );
 
-    feishu::send_text_alert(&state.http, webhook_url, &text)
-        .await
-        .map_err(|e| AppError::Upstream(e.to_string()))?;
+    let ctx = AlertLogContext {
+        kind: "test",
+        check_id: None,
+        check_name: None,
+    };
+    if !deliver_feishu(&state.pool, &state.http, &ctx, webhook_url, &text).await {
+        return Err(AppError::Upstream("飞书发送失败，详见告警历史".into()));
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -287,9 +321,14 @@ async fn test_pushplus(State(state): State<AppState>) -> Result<StatusCode, AppE
         feishu::format_time_east8()
     );
 
-    pushplus::send_message(&state.http, token, title, &content)
-        .await
-        .map_err(|e| AppError::Upstream(e.to_string()))?;
+    let ctx = AlertLogContext {
+        kind: "test",
+        check_id: None,
+        check_name: None,
+    };
+    if !deliver_pushplus(&state.pool, &state.http, &ctx, token, title, &content).await {
+        return Err(AppError::Upstream("PushPlus 发送失败，详见告警历史".into()));
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }

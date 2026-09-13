@@ -1,9 +1,9 @@
+use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
 use crate::checkpoint_db;
 use crate::feishu;
 use crate::history;
 use crate::config::{FeishuConfig, PushplusConfig};
 use crate::models::HealthCheck;
-use crate::pushplus;
 use crate::probe;
 use chrono::Utc;
 use sqlx::SqlitePool;
@@ -152,22 +152,26 @@ async fn send_down_alerts(
     let title = format!("健康检查告警: {}", check.name);
     let push_body = format_down_content(&check.name, &check.url, error);
 
+    let ctx = AlertLogContext {
+        kind: "down",
+        check_id: Some(check.id),
+        check_name: Some(check.name.clone()),
+    };
+
     let mut sent = false;
 
     if let Some(cfg) = pushplus {
         if cfg.enabled && !cfg.token.is_empty() {
-            match pushplus::send_message(client, &cfg.token, &title, &push_body).await {
-                Ok(()) => sent = true,
-                Err(e) => tracing::warn!("pushplus alert failed for {}: {}", check.name, e),
+            if deliver_pushplus(pool, client, &ctx, &cfg.token, &title, &push_body).await {
+                sent = true;
             }
         }
     }
 
     if let Some(cfg) = feishu {
         if cfg.enabled && !cfg.webhook_url.is_empty() {
-            match feishu::send_text_alert(client, &cfg.webhook_url, &feishu_body).await {
-                Ok(()) => sent = true,
-                Err(e) => tracing::warn!("feishu alert failed for {}: {}", check.name, e),
+            if deliver_feishu(pool, client, &ctx, &cfg.webhook_url, &feishu_body).await {
+                sent = true;
             }
         }
     }
@@ -185,7 +189,7 @@ async fn send_down_alerts(
 }
 
 async fn send_recovery_alerts(
-    _pool: &SqlitePool,
+    pool: &SqlitePool,
     client: &reqwest::Client,
     check: &HealthCheck,
     feishu: Option<&FeishuConfig>,
@@ -207,15 +211,21 @@ async fn send_recovery_alerts(
         time
     );
 
+    let ctx = AlertLogContext {
+        kind: "recovery",
+        check_id: Some(check.id),
+        check_name: Some(check.name.clone()),
+    };
+
     if let Some(cfg) = feishu {
         if cfg.enabled && !cfg.webhook_url.is_empty() {
-            let _ = feishu::send_text_alert(client, &cfg.webhook_url, &feishu_msg).await;
+            deliver_feishu(pool, client, &ctx, &cfg.webhook_url, &feishu_msg).await;
         }
     }
 
     if let Some(cfg) = pushplus_cfg {
         if cfg.enabled && !cfg.token.is_empty() {
-            let _ = pushplus::send_message(client, &cfg.token, &title, &push_body).await;
+            deliver_pushplus(pool, client, &ctx, &cfg.token, &title, &push_body).await;
         }
     }
 }

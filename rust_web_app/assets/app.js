@@ -42,7 +42,20 @@ function escapeHtml(s) {
 }
 
 let historyState = { checkId: null, name: "", offset: 0, total: 0, limit: 50 };
+let alertHistoryState = { offset: 0, total: 0, limit: 50 };
 let editingCheckId = null;
+
+const ALERT_KIND_LABELS = {
+  down: "故障告警",
+  recovery: "恢复通知",
+  alive_ping: "每日签到",
+  test: "通道测试",
+};
+
+const ALERT_CHANNEL_LABELS = {
+  feishu: "飞书",
+  pushplus: "PushPlus",
+};
 
 const CHECKPOINT_KIND_OPTIONS = [
   { value: "contains", label: "包含文本" },
@@ -424,8 +437,69 @@ function bindAlertTests() {
   }
 }
 
+function updateAlertHistoryMeta() {
+  const el = document.getElementById("alert-history-meta");
+  const shown = Math.min(alertHistoryState.offset, alertHistoryState.total);
+  el.textContent =
+    alertHistoryState.total === 0
+      ? "暂无告警发送记录"
+      : `共 ${alertHistoryState.total} 条，已显示 ${shown} 条`;
+}
+
+function renderAlertStatus(status) {
+  if (status === "ok") {
+    return '<span class="status-pill ok">成功</span>';
+  }
+  return '<span class="status-pill failed">失败</span>';
+}
+
+async function loadAlertHistory(append = false) {
+  const offset = append ? alertHistoryState.offset : 0;
+  const data = await api(
+    `/api/alerts/history?limit=${alertHistoryState.limit}&offset=${offset}`
+  );
+  alertHistoryState.total = data.total;
+  alertHistoryState.offset = offset + data.items.length;
+
+  const tbody = document.getElementById("alert-history-body");
+  if (!append) tbody.innerHTML = "";
+
+  for (const row of data.items) {
+    const tr = document.createElement("tr");
+    const kind = ALERT_KIND_LABELS[row.kind] || row.kind;
+    const channel = ALERT_CHANNEL_LABELS[row.channel] || row.channel;
+    const checkLabel = row.check_name || (row.check_id ? `#${row.check_id}` : "—");
+    const title = row.title ? `<strong>${escapeHtml(row.title)}</strong><br>` : "";
+    const err = row.error
+      ? `<div class="alert-err">${escapeHtml(row.error)}</div>`
+      : "";
+    tr.innerHTML = `
+      <td>${escapeHtml(formatTime(row.sent_at))}</td>
+      <td>${escapeHtml(kind)}</td>
+      <td>${escapeHtml(channel)}</td>
+      <td>${renderAlertStatus(row.status)}</td>
+      <td>${escapeHtml(checkLabel)}</td>
+      <td class="alert-msg-cell">${title}${escapeHtml(row.message)}${err}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById("alert-history-more").hidden =
+    alertHistoryState.offset >= alertHistoryState.total;
+  updateAlertHistoryMeta();
+}
+
+document.getElementById("alert-history-refresh").addEventListener("click", () => {
+  loadAlertHistory(false).catch((e) => toast(e.message));
+});
+
+document.getElementById("alert-history-more").addEventListener("click", () => {
+  loadAlertHistory(true).catch((e) => toast(e.message));
+});
+
 bindAlertTests();
 renderCheckpointRows([]);
 
+loadAlertHistory().catch((e) => toast(e.message));
 loadChecks().catch((e) => toast(e.message));
 setInterval(() => loadChecks().catch(() => {}), 15000);

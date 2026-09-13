@@ -11,6 +11,7 @@
 - 每日存活签到：东八区定时一条消息（`alive_ping`，复用已启用的告警通道）
 - 每 5 秒调度一次，按各条目 `interval_secs` 执行探测
 - 每次检测写入历史记录，可按条目分页查询
+- 告警发送历史：记录渠道、状态、报文与失败原因
 - 后台定时清理过期/超量历史（可配置）
 - 静态管理界面（`rust_web_app/assets`）
 
@@ -80,3 +81,4 @@ git push origin v0.1.0
 - `GET /api/checks/:id/history?limit=&offset=` — 检测历史（含 `request_message` / `response_message` 报文）
 - `POST /api/feishu/test` — 按 `config.toml` 的 `[feishu]` 发送测试消息
 - `POST /api/pushplus/test` — 按 `config.toml` 的 `[pushplus]` 发送测试消息
+- `GET /api/alerts/history?limit=&offset=` — 告警发送历史（渠道、状态、内容）

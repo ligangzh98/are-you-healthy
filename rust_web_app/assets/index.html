@@ -24,6 +24,30 @@
       </div>
     </section>
 
+    <section class="card" id="alert-history-panel">
+      <div class="card-head">
+        <h2>告警历史</h2>
+        <button type="button" id="alert-history-refresh" class="btn">刷新</button>
+      </div>
+      <p class="hint" id="alert-history-meta"></p>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>类型</th>
+            <th>渠道</th>
+            <th>状态</th>
+            <th>检查项</th>
+            <th>内容</th>
+          </tr>
+        </thead>
+        <tbody id="alert-history-body"></tbody>
+      </table>
+      <div class="form-actions history-actions">
+        <button type="button" id="alert-history-more" class="btn" hidden>加载更多</button>
+      </div>
+    </section>
+
     <section class="card">
       <div class="card-head">
         <h2>检查条目</h2>
@@ -125,6 +149,6 @@
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js?v=5"></script>
+  <script src="/app.js?v=6"></script>
 </body>
 </html>

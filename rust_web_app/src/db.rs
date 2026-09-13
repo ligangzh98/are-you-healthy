@@ -98,6 +98,32 @@ pub async fn init_pool(db_path: &Path) -> anyhow::Result<SqlitePool> {
     .execute(&pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS alert_deliveries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind TEXT NOT NULL,
+            channel TEXT NOT NULL,
+            status TEXT NOT NULL,
+            title TEXT,
+            message TEXT NOT NULL,
+            error TEXT,
+            check_id INTEGER,
+            check_name TEXT,
+            sent_at TEXT NOT NULL
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_alert_deliveries_sent_at \
+         ON alert_deliveries (sent_at DESC)",
+    )
+    .execute(&pool)
+    .await?;
+
     // 新系统：缺列时补齐（忽略已存在）
     let _ = sqlx::query("ALTER TABLE check_runs ADD COLUMN request_message TEXT NOT NULL DEFAULT ''")
         .execute(&pool)
