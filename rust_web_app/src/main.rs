@@ -1,4 +1,6 @@
 mod api;
+mod checkpoint_db;
+mod checkpoints;
 mod checker;
 mod db;
 mod feishu;

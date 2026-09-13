@@ -1,3 +1,4 @@
+use crate::checkpoints::{evaluate_all, CheckpointRule};
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, Response};
 use std::str::FromStr;
@@ -33,6 +34,7 @@ pub async fn run_probe(
     method: &str,
     url: &str,
     expected_status: i64,
+    checkpoints: &[CheckpointRule],
 ) -> CheckProbeResult {
     let request_message = build_request_message(method, url);
     let method_upper = method.to_uppercase();
@@ -58,15 +60,26 @@ pub async fn run_probe(
         Ok(resp) => {
             let ms = start.elapsed().as_millis() as i64;
             let code = resp.status().as_u16() as i64;
-            let response_message = format_response_message(resp, method_upper == "HEAD", max_body).await;
-            let (status, error) = if code == expected_status {
-                ("up".to_string(), None)
-            } else {
+            let head_only = method_upper == "HEAD";
+            let (response_message, body_for_check) =
+                read_response(resp, head_only, max_body).await;
+
+            let (status, error) = if code != expected_status {
                 (
                     "down".to_string(),
                     Some(format!("status {} (expected {})", code, expected_status)),
                 )
+            } else if !checkpoints.is_empty() && head_only {
+                (
+                    "down".to_string(),
+                    Some("HEAD 请求无响应体，无法执行检查点".into()),
+                )
+            } else if let Some(cp_err) = evaluate_all(&body_for_check, checkpoints) {
+                ("down".to_string(), Some(cp_err))
+            } else {
+                ("up".to_string(), None)
             };
+
             CheckProbeResult {
                 status,
                 response_ms: Some(ms),
@@ -85,22 +98,29 @@ pub async fn run_probe(
     }
 }
 
-async fn format_response_message(resp: Response, head_only: bool, max_body: usize) -> String {
+async fn read_response(resp: Response, head_only: bool, max_body: usize) -> (String, String) {
     let status = resp.status();
     let headers = resp.headers().clone();
     let mut lines = vec![format!("HTTP/1.1 {}", status)];
     append_headers(&mut lines, &headers);
 
     if head_only {
-        return lines.join("\n");
+        return (lines.join("\n"), String::new());
     }
 
     lines.push(String::new());
-    match resp.text().await {
-        Ok(body) => lines.push(truncate_body(&body, max_body)),
-        Err(e) => lines.push(format!("[failed to read body: {}]", e)),
-    }
-    lines.join("\n")
+    let body = match resp.text().await {
+        Ok(b) => b,
+        Err(e) => {
+            let msg = format!("[failed to read body: {}]", e);
+            lines.push(msg.clone());
+            return (lines.join("\n"), String::new());
+        }
+    };
+
+    let body_for_check = truncate_body(&body, max_body);
+    lines.push(body_for_check.clone());
+    (lines.join("\n"), body_for_check)
 }
 
 fn append_headers(lines: &mut Vec<String>, headers: &HeaderMap) {

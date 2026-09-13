@@ -5,6 +5,7 @@
 ## 功能
 
 - 增删改查健康检查（URL、方法、期望状态码、间隔、启用/停用）
+- 响应体检查点：包含、相等、不包含、正则匹配 / 正则不匹配
 - 飞书自定义机器人 Webhook 告警（首次故障、冷却期内重复提醒、恢复通知）
 - PushPlus（推送加）Token 告警，与飞书可并行启用
 - 每 5 秒调度一次，按各条目 `interval_secs` 执行探测
@@ -50,7 +51,8 @@ cargo run
 ## API 摘要
 
 - `GET/POST /api/checks` — 列表 / 创建
-- `GET/PUT/DELETE /api/checks/:id` — 详情 / 更新 / 删除
+- `GET/PUT/DELETE /api/checks/:id` — 详情 / 更新 / 删除（创建/更新 body 可带 `checkpoints` 数组）
+- `GET/PUT /api/checks/:id/checkpoints` — 检查点列表 / 全量替换
 - `POST /api/checks/:id/run` — 立即执行一次检测（含告警逻辑）
 - `GET /api/checks/:id/history?limit=&offset=` — 检测历史（含 `request_message` / `response_message` 报文）
 - `GET/PUT /api/feishu` — 飞书配置

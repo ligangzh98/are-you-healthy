@@ -24,6 +24,7 @@ pub struct CreateHealthCheck {
     pub expected_status: Option<i64>,
     pub interval_secs: Option<i64>,
     pub enabled: Option<bool>,
+    pub checkpoints: Option<Vec<CheckpointInput>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -34,6 +35,34 @@ pub struct UpdateHealthCheck {
     pub expected_status: Option<i64>,
     pub interval_secs: Option<i64>,
     pub enabled: Option<bool>,
+    pub checkpoints: Option<Vec<CheckpointInput>>,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct CheckCheckpoint {
+    pub id: i64,
+    pub check_id: i64,
+    pub kind: String,
+    pub value: String,
+    pub enabled: bool,
+    pub sort_order: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CheckpointInput {
+    pub kind: String,
+    pub value: String,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckpointsResponse {
+    pub checkpoints: Vec<CheckCheckpoint>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReplaceCheckpointsBody {
+    pub checkpoints: Vec<CheckpointInput>,
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]

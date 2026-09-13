@@ -244,6 +244,31 @@ select {
   word-break: break-word;
 }
 
+.checkpoint-editor {
+  margin: 0 0 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.checkpoint-head {
+  margin-bottom: 0.35rem;
+}
+
+.checkpoint-head h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+#checkpoint-table input[type="text"] {
+  width: 100%;
+  min-width: 120px;
+}
+
+#checkpoint-table select {
+  min-width: 140px;
+}
+
 .history-actions {
   margin-top: 0.75rem;
 }

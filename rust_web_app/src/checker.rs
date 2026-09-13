@@ -1,3 +1,4 @@
+use crate::checkpoint_db;
 use crate::feishu;
 use crate::history;
 use crate::models::{FeishuConfig, HealthCheck, PushplusConfig};
@@ -51,7 +52,15 @@ pub async fn execute_health_check(
     feishu: Option<&FeishuConfig>,
     pushplus_cfg: Option<&PushplusConfig>,
 ) {
-    let probe = probe::run_probe(client, &check.method, &check.url, check.expected_status).await;
+    let checkpoint_rules = checkpoint_db::load_enabled_rules(pool, check.id).await;
+    let probe = probe::run_probe(
+        client,
+        &check.method,
+        &check.url,
+        check.expected_status,
+        &checkpoint_rules,
+    )
+    .await;
     let status = probe.status;
     let response_ms = probe.response_ms;
     let error = probe.error;

@@ -98,11 +98,31 @@
           <input type="checkbox" id="check-enabled" checked />
           启用
         </label>
-        <div class="form-actions check-form-actions">
-          <button type="submit" class="btn primary" id="check-submit">添加检查</button>
-          <button type="button" class="btn" id="check-cancel-edit" hidden>取消编辑</button>
-        </div>
       </form>
+
+      <div class="checkpoint-editor">
+        <div class="card-head checkpoint-head">
+          <h3>检查点（响应体）</h3>
+          <button type="button" id="checkpoint-add" class="btn">添加检查点</button>
+        </div>
+        <p class="hint">状态码符合预期后，按顺序校验响应体；全部通过才视为正常。</p>
+        <table class="table" id="checkpoint-table">
+          <thead>
+            <tr>
+              <th>类型</th>
+              <th>预期值</th>
+              <th>启用</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="checkpoint-body"></tbody>
+        </table>
+      </div>
+
+      <div class="form-actions check-form-actions">
+        <button type="submit" form="check-form" class="btn primary" id="check-submit">添加检查</button>
+        <button type="button" class="btn" id="check-cancel-edit" hidden>取消编辑</button>
+      </div>
 
       <table class="table" id="checks-table">
         <thead>
@@ -143,6 +163,6 @@
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js?v=2"></script>
+  <script src="/app.js?v=3"></script>
 </body>
 </html>

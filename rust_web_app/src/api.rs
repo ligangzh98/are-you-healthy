@@ -1,9 +1,12 @@
+use crate::checkpoint_db;
+use crate::checkpoints;
 use crate::checker;
 use crate::feishu;
 use crate::models::{
-    CheckHistoryResponse, CheckRun, CreateHealthCheck, FeishuConfig, HealthCheck,
-    PushplusConfig, TestFeishuRequest, TestPushplusRequest, UpdateFeishuConfig,
-    UpdateHealthCheck, UpdatePushplusConfig,
+    CheckHistoryResponse, CheckRun, CheckpointsResponse, CreateHealthCheck,
+    CheckpointInput, FeishuConfig, HealthCheck, PushplusConfig, ReplaceCheckpointsBody,
+    TestFeishuRequest, TestPushplusRequest, UpdateFeishuConfig, UpdateHealthCheck,
+    UpdatePushplusConfig,
 };
 use crate::pushplus;
 use axum::extract::{Path, Query, State};
@@ -29,6 +32,10 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/checks/:id/run", post(run_check_now))
         .route("/api/checks/:id/history", get(list_check_history))
+        .route(
+            "/api/checks/:id/checkpoints",
+            get(list_checkpoints).put(replace_checkpoints),
+        )
         .route("/api/feishu", get(get_feishu).put(update_feishu))
         .route("/api/feishu/test", post(test_feishu))
         .route("/api/pushplus", get(get_pushplus).put(update_pushplus))
@@ -89,6 +96,12 @@ async fn create_check(
     .await?;
 
     let id = result.last_insert_rowid();
+
+    if let Some(cps) = body.checkpoints {
+        let normalized = normalize_checkpoint_inputs(cps)?;
+        checkpoint_db::replace_for_check(&state.pool, id, &normalized).await?;
+    }
+
     get_check(State(state), Path(id)).await.map(|j| (StatusCode::CREATED, j))
 }
 
@@ -120,7 +133,50 @@ async fn update_check(
     .execute(&state.pool)
     .await?;
 
+    if let Some(cps) = body.checkpoints {
+        let normalized = normalize_checkpoint_inputs(cps)?;
+        checkpoint_db::replace_for_check(&state.pool, id, &normalized).await?;
+    }
+
     get_check(State(state), Path(id)).await
+}
+
+fn normalize_checkpoint_inputs(items: Vec<CheckpointInput>) -> Result<Vec<CheckpointInput>, AppError> {
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        if item.value.trim().is_empty() {
+            return Err(AppError::BadRequest("检查点预期值不能为空"));
+        }
+        let kind = checkpoints::normalize_kind(&item.kind).ok_or(AppError::BadRequest(
+            "不支持的检查点类型，可选: contains, equals, not_contains, regex, not_regex",
+        ))?;
+        out.push(CheckpointInput {
+            kind,
+            value: item.value,
+            enabled: item.enabled,
+        });
+    }
+    Ok(out)
+}
+
+async fn list_checkpoints(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<CheckpointsResponse>, AppError> {
+    let _ = get_check(State(state.clone()), Path(id)).await?;
+    let rows = checkpoint_db::list_for_check(&state.pool, id).await?;
+    Ok(Json(CheckpointsResponse { checkpoints: rows }))
+}
+
+async fn replace_checkpoints(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(body): Json<ReplaceCheckpointsBody>,
+) -> Result<Json<CheckpointsResponse>, AppError> {
+    let _ = get_check(State(state.clone()), Path(id)).await?;
+    let normalized = normalize_checkpoint_inputs(body.checkpoints)?;
+    checkpoint_db::replace_for_check(&state.pool, id, &normalized).await?;
+    list_checkpoints(State(state), Path(id)).await
 }
 
 #[derive(Debug, Deserialize)]

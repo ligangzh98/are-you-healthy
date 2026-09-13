@@ -44,6 +44,75 @@ function escapeHtml(s) {
 let historyState = { checkId: null, name: "", offset: 0, total: 0, limit: 50 };
 let editingCheckId = null;
 
+const CHECKPOINT_KIND_OPTIONS = [
+  { value: "contains", label: "包含文本" },
+  { value: "equals", label: "完全相等" },
+  { value: "not_contains", label: "不包含" },
+  { value: "regex", label: "正则匹配" },
+  { value: "not_regex", label: "正则不匹配" },
+];
+
+function renderCheckpointRows(rows) {
+  const tbody = document.getElementById("checkpoint-body");
+  if (!rows.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="4" style="color:var(--muted)">未配置检查点（仅校验 HTTP 状态码）</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows
+    .map(
+      (row, i) => `
+    <tr data-cp-row="${i}">
+      <td>
+        <select class="cp-kind" data-i="${i}">
+          ${CHECKPOINT_KIND_OPTIONS.map(
+            (o) =>
+              `<option value="${o.value}" ${row.kind === o.value ? "selected" : ""}>${o.label}</option>`
+          ).join("")}
+        </select>
+      </td>
+      <td><input type="text" class="cp-value" data-i="${i}" value="${escapeHtml(row.value)}" placeholder="预期字符串或正则" /></td>
+      <td><input type="checkbox" class="cp-enabled" data-i="${i}" ${row.enabled ? "checked" : ""} /></td>
+      <td><button type="button" class="btn-link danger cp-remove" data-i="${i}">删除</button></td>
+    </tr>`
+    )
+    .join("");
+
+  tbody.querySelectorAll(".cp-remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const rowsNow = readCheckpointsFromDom();
+      rowsNow.splice(Number(btn.dataset.i), 1);
+      renderCheckpointRows(rowsNow);
+    });
+  });
+}
+
+function readCheckpointsFromDom() {
+  const tbody = document.getElementById("checkpoint-body");
+  const trs = tbody.querySelectorAll("tr[data-cp-row]");
+  if (!trs.length) return [];
+  return Array.from(trs).map((tr) => {
+    const kind = tr.querySelector(".cp-kind")?.value || "contains";
+    const value = tr.querySelector(".cp-value")?.value ?? "";
+    const enabled = tr.querySelector(".cp-enabled")?.checked ?? true;
+    return { kind, value: value.trim(), enabled };
+  });
+}
+
+async function loadCheckpointsForCheck(checkId) {
+  try {
+    const data = await api("/api/checks/" + checkId + "/checkpoints");
+    const rows = (data.checkpoints || []).map((c) => ({
+      kind: c.kind,
+      value: c.value,
+      enabled: !!c.enabled,
+    }));
+    renderCheckpointRows(rows);
+  } catch {
+    renderCheckpointRows([]);
+  }
+}
+
 function resetCheckForm() {
   editingCheckId = null;
   const form = document.getElementById("check-form");
@@ -55,6 +124,7 @@ function resetCheckForm() {
   document.getElementById("check-cancel-edit").hidden = true;
   document.getElementById("check-form-hint").textContent =
     "填写下方表单添加新的健康检查。";
+  renderCheckpointRows([]);
 }
 
 function beginEditCheck(check) {
@@ -68,10 +138,12 @@ function beginEditCheck(check) {
   document.getElementById("check-submit").textContent = "保存修改";
   document.getElementById("check-cancel-edit").hidden = false;
   document.getElementById("check-form-hint").textContent = `正在编辑：${check.name}（ID ${check.id}）`;
+  loadCheckpointsForCheck(check.id);
   document.getElementById("check-form").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function readCheckFormPayload() {
+  const checkpoints = readCheckpointsFromDom().filter((c) => c.value.length > 0);
   return {
     name: document.getElementById("check-name").value.trim(),
     url: document.getElementById("check-url").value.trim(),
@@ -79,6 +151,7 @@ function readCheckFormPayload() {
     expected_status: Number(document.getElementById("check-status").value),
     interval_secs: Number(document.getElementById("check-interval").value),
     enabled: document.getElementById("check-enabled").checked,
+    checkpoints,
   };
 }
 
@@ -373,6 +446,15 @@ async function loadChecks() {
   });
 }
 
+document.getElementById("checkpoint-add").addEventListener("click", () => {
+  const rows = readCheckpointsFromDom();
+  if (!rows.length && document.getElementById("checkpoint-body").querySelector("td[colspan]")) {
+    rows.length = 0;
+  }
+  rows.push({ kind: "contains", value: "", enabled: true });
+  renderCheckpointRows(rows);
+});
+
 document.getElementById("check-cancel-edit").addEventListener("click", () => {
   resetCheckForm();
   toast("已取消编辑");
@@ -407,6 +489,7 @@ document.getElementById("btn-refresh").addEventListener("click", () => {
 });
 
 bindPushplusForm();
+renderCheckpointRows([]);
 
 loadFeishu().catch((e) => toast(e.message));
 loadPushplus().catch((e) => toast(e.message));
