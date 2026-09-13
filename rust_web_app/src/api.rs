@@ -1,3 +1,4 @@
+use crate::checker;
 use crate::feishu;
 use crate::models::{
     CreateHealthCheck, FeishuConfig, HealthCheck, TestFeishuRequest, UpdateFeishuConfig,
@@ -24,6 +25,7 @@ pub fn router() -> Router<AppState> {
             "/api/checks/:id",
             put(update_check).delete(delete_check).get(get_check),
         )
+        .route("/api/checks/:id/run", post(run_check_now))
         .route("/api/feishu", get(get_feishu).put(update_feishu))
         .route("/api/feishu/test", post(test_feishu))
 }
@@ -112,6 +114,19 @@ async fn update_check(
     .bind(id)
     .execute(&state.pool)
     .await?;
+
+    get_check(State(state), Path(id)).await
+}
+
+async fn run_check_now(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<HealthCheck>, AppError> {
+    let check = get_check(State(state.clone()), Path(id)).await?.0;
+
+    let feishu = checker::load_feishu_config(&state.pool).await;
+    checker::execute_health_check(&state.pool, &state.http, &check, feishu.as_ref())
+        .await?;
 
     get_check(State(state), Path(id)).await
 }

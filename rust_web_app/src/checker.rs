@@ -1,5 +1,5 @@
 use crate::feishu;
-use crate::models::FeishuConfig;
+use crate::models::{FeishuConfig, HealthCheck};
 use chrono::Utc;
 use sqlx::SqlitePool;
 use std::time::Instant;
@@ -61,13 +61,7 @@ pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
         }
     };
 
-    let feishu = sqlx::query_as::<_, FeishuConfig>(
-        "SELECT id, webhook_url, enabled, alert_cooldown_secs FROM feishu_config WHERE id = 1",
-    )
-    .fetch_optional(&pool)
-    .await
-    .ok()
-    .flatten();
+    let feishu = load_feishu_config(&pool).await;
 
     let now = Utc::now();
 
@@ -76,75 +70,92 @@ pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
             continue;
         }
 
-        let (status, response_ms, error) = run_check(
-            &client,
-            &check.method,
-            &check.url,
-            check.expected_status,
-        )
-        .await;
-
-        let checked_at = now.to_rfc3339();
-        let prev_status = check.last_status.as_deref();
-
-        if let Err(e) = sqlx::query(
-            "UPDATE health_checks SET last_checked_at = ?, last_status = ?, \
-             last_response_ms = ?, last_error = ? WHERE id = ?",
-        )
-        .bind(&checked_at)
-        .bind(&status)
-        .bind(response_ms)
-        .bind(&error)
-        .bind(check.id)
-        .execute(&pool)
-        .await
-        {
-            tracing::error!("update check {}: {}", check.id, e);
-            continue;
+        if let Err(e) = execute_health_check(&pool, &client, &check, feishu.as_ref()).await {
+            tracing::error!("check {}: {}", check.id, e);
         }
+    }
+}
 
-        let became_down = status == "down" && prev_status != Some("down");
-        let still_down = status == "down";
+pub async fn execute_health_check(
+    pool: &SqlitePool,
+    client: &reqwest::Client,
+    check: &HealthCheck,
+    feishu: Option<&FeishuConfig>,
+) -> Result<(), sqlx::Error> {
+    let (status, response_ms, error) = run_check(
+        client,
+        &check.method,
+        &check.url,
+        check.expected_status,
+    )
+    .await;
 
-        if still_down {
-            if let Some(cfg) = &feishu {
-                if cfg.enabled && !cfg.webhook_url.is_empty() {
-                    let should_alert = became_down
-                        || cooldown_elapsed(&pool, check.id, cfg.alert_cooldown_secs).await;
+    let checked_at = Utc::now().to_rfc3339();
+    let prev_status = check.last_status.as_deref();
 
-                    if should_alert {
-                        let msg = format_alert(&check.name, &check.url, &error);
-                        if let Err(e) =
-                            feishu::send_text_alert(&client, &cfg.webhook_url, &msg).await
-                        {
-                            tracing::warn!("feishu alert failed for {}: {}", check.name, e);
-                        } else {
-                            let _ = sqlx::query(
-                                "INSERT INTO alert_state (check_id, last_alert_at) VALUES (?, ?) \
-                                 ON CONFLICT(check_id) DO UPDATE SET last_alert_at = excluded.last_alert_at",
-                            )
-                            .bind(check.id)
-                            .bind(&checked_at)
-                            .execute(&pool)
-                            .await;
-                        }
+    sqlx::query(
+        "UPDATE health_checks SET last_checked_at = ?, last_status = ?, \
+         last_response_ms = ?, last_error = ? WHERE id = ?",
+    )
+    .bind(&checked_at)
+    .bind(&status)
+    .bind(response_ms)
+    .bind(&error)
+    .bind(check.id)
+    .execute(pool)
+    .await?;
+
+    let became_down = status == "down" && prev_status != Some("down");
+    let still_down = status == "down";
+
+    if still_down {
+        if let Some(cfg) = feishu {
+            if cfg.enabled && !cfg.webhook_url.is_empty() {
+                let should_alert =
+                    became_down || cooldown_elapsed(pool, check.id, cfg.alert_cooldown_secs).await;
+
+                if should_alert {
+                    let msg = format_alert(&check.name, &check.url, &error);
+                    if let Err(e) = feishu::send_text_alert(client, &cfg.webhook_url, &msg).await {
+                        tracing::warn!("feishu alert failed for {}: {}", check.name, e);
+                    } else {
+                        let _ = sqlx::query(
+                            "INSERT INTO alert_state (check_id, last_alert_at) VALUES (?, ?) \
+                             ON CONFLICT(check_id) DO UPDATE SET last_alert_at = excluded.last_alert_at",
+                        )
+                        .bind(check.id)
+                        .bind(&checked_at)
+                        .execute(pool)
+                        .await;
                     }
                 }
             }
-        } else if prev_status == Some("down") {
-            if let Some(cfg) = &feishu {
-                if cfg.enabled && !cfg.webhook_url.is_empty() {
-                    let msg = format!(
-                        "【健康检查恢复】\n名称: {}\nURL: {}\n时间: {}",
-                        check.name,
-                        check.url,
-                        checked_at
-                    );
-                    let _ = feishu::send_text_alert(&client, &cfg.webhook_url, &msg).await;
-                }
+        }
+    } else if prev_status == Some("down") {
+        if let Some(cfg) = feishu {
+            if cfg.enabled && !cfg.webhook_url.is_empty() {
+                let msg = format!(
+                    "【健康检查恢复】\n名称: {}\nURL: {}\n时间: {}",
+                    check.name,
+                    check.url,
+                    checked_at
+                );
+                let _ = feishu::send_text_alert(client, &cfg.webhook_url, &msg).await;
             }
         }
     }
+
+    Ok(())
+}
+
+pub async fn load_feishu_config(pool: &SqlitePool) -> Option<FeishuConfig> {
+    sqlx::query_as::<_, FeishuConfig>(
+        "SELECT id, webhook_url, enabled, alert_cooldown_secs FROM feishu_config WHERE id = 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
 }
 
 fn is_due(last_checked_at: &Option<String>, interval_secs: i64, now: &chrono::DateTime<Utc>) -> bool {

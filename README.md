@@ -38,5 +38,6 @@ cargo run
 
 - `GET/POST /api/checks` — 列表 / 创建
 - `GET/PUT/DELETE /api/checks/:id` — 详情 / 更新 / 删除
+- `POST /api/checks/:id/run` — 立即执行一次检测（含告警逻辑）
 - `GET/PUT /api/feishu` — 飞书配置
 - `POST /api/feishu/test` — 发送测试告警（body 可选 `webhook_url`，默认用已保存配置）

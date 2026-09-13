@@ -110,6 +110,7 @@ async function loadChecks() {
       <td>${c.last_response_ms != null ? c.last_response_ms + " ms" : "—"}</td>
       <td>${formatTime(c.last_checked_at)}</td>
       <td>
+        <button type="button" class="btn-link" data-run="${c.id}">立即检测</button>
         <button type="button" class="btn-link" data-toggle="${c.id}" data-enabled="${c.enabled}">
           ${c.enabled ? "停用" : "启用"}
         </button>
@@ -118,6 +119,28 @@ async function loadChecks() {
     </tr>`
     )
     .join("");
+
+  tbody.querySelectorAll("[data-run]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.run;
+      btn.disabled = true;
+      try {
+        const updated = await api("/api/checks/" + id + "/run", { method: "POST" });
+        const label =
+          updated.last_status === "up"
+            ? "正常"
+            : updated.last_status === "down"
+              ? "异常"
+              : updated.last_status || "未知";
+        toast(`检测完成：${label}`);
+        loadChecks();
+      } catch (err) {
+        toast("检测失败: " + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
 
   tbody.querySelectorAll("[data-delete]").forEach((btn) => {
     btn.addEventListener("click", async () => {
