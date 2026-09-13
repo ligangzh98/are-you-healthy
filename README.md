@@ -22,19 +22,22 @@ cargo run
 
 浏览器打开 [http://localhost:8080](http://localhost:8080)。
 
-### 环境变量
+### 配置文件
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `HOST` | `0.0.0.0` | 监听地址 |
-| `PORT` | `8080` | 端口 |
-| `DATABASE_PATH` | `data/health.db` | SQLite 文件路径 |
-| `ASSETS_DIR` | `assets` | 静态资源目录 |
-| `RUST_LOG` | `info` | 日志级别 |
-| `HISTORY_RETENTION_DAYS` | `30` | 历史保留天数，`0` 表示不按时间删除 |
-| `HISTORY_MAX_PER_CHECK` | `1000` | 每条检查最多保留记录数，`0` 表示不限制 |
-| `HISTORY_CLEANUP_INTERVAL_SECS` | `3600` | 历史清理任务间隔（秒） |
-| `CHECK_CAPTURE_MAX_BYTES` | `8192` | 单次检测响应体写入历史的最大字节数 |
+在 `rust_web_app/config.toml` 中修改服务参数（不存在时使用内置默认值）。主要项：
+
+| 配置段 | 字段 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `server` | `host` / `port` | `0.0.0.0` / `8080` | HTTP 监听 |
+| `database` | `path` | `data/health.db` | SQLite 路径 |
+| `assets` | `dir` | `assets` | 静态资源目录 |
+| `history` | `retention_days` | `30` | 历史保留天数，`0` 不按时间删 |
+| `history` | `max_per_check` | `1000` | 每条最多保留条数，`0` 不限制 |
+| `history` | `cleanup_interval_secs` | `3600` | 清理任务间隔（秒） |
+| `probe` | `capture_max_bytes` | `8192` | 响应体写入上限（字节） |
+| `scheduler` | `tick_secs` | `5` | 调度扫描间隔（秒） |
+| `http_client` | `timeout_secs` | `15` | 探测 HTTP 超时 |
+| `log` | `level` | `info` | 日志级别（可被 `RUST_LOG` 覆盖） |
 
 ## 飞书配置
 

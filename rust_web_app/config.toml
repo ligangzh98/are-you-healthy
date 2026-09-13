@@ -1,0 +1,33 @@
+# Are You Healthy 服务配置（修改后重启生效）
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+path = "data/health.db"
+
+[assets]
+dir = "assets"
+
+[history]
+# retention_days = 0 表示不按时间删除历史
+retention_days = 30
+# max_per_check = 0 表示不限制每条检查保留条数
+max_per_check = 1000
+cleanup_interval_secs = 3600
+
+[probe]
+# 单次探测写入历史的响应体最大字节数
+capture_max_bytes = 8192
+
+[scheduler]
+# 调度器扫描间隔（秒），各条目仍按 interval_secs 决定是否探测
+tick_secs = 5
+
+[http_client]
+timeout_secs = 15
+
+[log]
+# 若已设置环境变量 RUST_LOG，则优先生效
+level = "info"

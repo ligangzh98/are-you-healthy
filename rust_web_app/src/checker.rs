@@ -329,9 +329,9 @@ fn format_alert(name: &str, url: &str, error: &Option<String>) -> String {
     )
 }
 
-pub fn spawn_scheduler(pool: SqlitePool, client: reqwest::Client) {
+pub fn spawn_scheduler(pool: SqlitePool, client: reqwest::Client, tick_secs: u64) {
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(tick_secs));
         loop {
             interval.tick().await;
             scheduler_tick(pool.clone(), client.clone()).await;

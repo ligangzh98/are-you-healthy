@@ -1,3 +1,4 @@
+use crate::config::HistoryConfig;
 use chrono::{Duration, Utc};
 use sqlx::SqlitePool;
 use tracing::info;
@@ -10,20 +11,13 @@ pub struct HistoryRetention {
 }
 
 impl HistoryRetention {
-    pub fn from_env() -> Self {
+    pub fn from_config(cfg: &HistoryConfig) -> Self {
         Self {
-            retention_days: env_u64("HISTORY_RETENTION_DAYS", 30),
-            max_per_check: env_u64("HISTORY_MAX_PER_CHECK", 1000),
-            cleanup_interval_secs: env_u64("HISTORY_CLEANUP_INTERVAL_SECS", 3600),
+            retention_days: cfg.retention_days,
+            max_per_check: cfg.max_per_check,
+            cleanup_interval_secs: cfg.cleanup_interval_secs,
         }
     }
-}
-
-fn env_u64(key: &str, default: u64) -> u64 {
-    std::env::var(key)
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(default)
 }
 
 pub async fn insert_run(

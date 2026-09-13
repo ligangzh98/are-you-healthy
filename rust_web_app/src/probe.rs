@@ -12,11 +12,7 @@ pub struct CheckProbeResult {
 }
 
 pub fn capture_max_bytes() -> usize {
-    std::env::var("CHECK_CAPTURE_MAX_BYTES")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(8192)
-        .clamp(256, 1024 * 1024)
+    crate::config::get().probe.capture_max_bytes
 }
 
 pub fn build_request_message(method: &str, url: &str) -> String {
