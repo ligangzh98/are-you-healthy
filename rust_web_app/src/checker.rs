@@ -1,4 +1,5 @@
 use crate::feishu;
+use crate::history;
 use crate::models::{FeishuConfig, HealthCheck};
 use chrono::Utc;
 use sqlx::SqlitePool;
@@ -104,6 +105,8 @@ pub async fn execute_health_check(
     .bind(check.id)
     .execute(pool)
     .await?;
+
+    history::insert_run(pool, check.id, &status, response_ms, &error, &checked_at).await?;
 
     let became_down = status == "down" && prev_status != Some("down");
     let still_down = status == "down";

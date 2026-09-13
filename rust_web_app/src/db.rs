@@ -72,5 +72,28 @@ pub async fn init_pool(db_path: &Path) -> anyhow::Result<SqlitePool> {
     .execute(&pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS check_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            check_id INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            response_ms INTEGER,
+            error TEXT,
+            checked_at TEXT NOT NULL,
+            FOREIGN KEY (check_id) REFERENCES health_checks(id) ON DELETE CASCADE
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_check_runs_check_id_checked_at \
+         ON check_runs (check_id, checked_at DESC)",
+    )
+    .execute(&pool)
+    .await?;
+
     Ok(pool)
 }

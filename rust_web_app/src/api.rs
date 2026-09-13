@@ -1,15 +1,16 @@
 use crate::checker;
 use crate::feishu;
 use crate::models::{
-    CreateHealthCheck, FeishuConfig, HealthCheck, TestFeishuRequest, UpdateFeishuConfig,
-    UpdateHealthCheck,
+    CheckHistoryResponse, CheckRun, CreateHealthCheck, FeishuConfig, HealthCheck,
+    TestFeishuRequest, UpdateFeishuConfig, UpdateHealthCheck,
 };
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use chrono::Utc;
+use serde::Deserialize;
 use sqlx::SqlitePool;
 
 #[derive(Clone)]
@@ -26,6 +27,7 @@ pub fn router() -> Router<AppState> {
             put(update_check).delete(delete_check).get(get_check),
         )
         .route("/api/checks/:id/run", post(run_check_now))
+        .route("/api/checks/:id/history", get(list_check_history))
         .route("/api/feishu", get(get_feishu).put(update_feishu))
         .route("/api/feishu/test", post(test_feishu))
 }
@@ -116,6 +118,45 @@ async fn update_check(
     .await?;
 
     get_check(State(state), Path(id)).await
+}
+
+#[derive(Debug, Deserialize)]
+struct HistoryQuery {
+    limit: Option<u32>,
+    offset: Option<u32>,
+}
+
+async fn list_check_history(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Query(query): Query<HistoryQuery>,
+) -> Result<Json<CheckHistoryResponse>, AppError> {
+    let _ = get_check(State(state.clone()), Path(id)).await?;
+
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let offset = query.offset.unwrap_or(0);
+
+    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM check_runs WHERE check_id = ?")
+        .bind(id)
+        .fetch_one(&state.pool)
+        .await?;
+
+    let items = sqlx::query_as::<_, CheckRun>(
+        "SELECT id, check_id, status, response_ms, error, checked_at \
+         FROM check_runs WHERE check_id = ? ORDER BY checked_at DESC LIMIT ? OFFSET ?",
+    )
+    .bind(id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(&state.pool)
+    .await?;
+
+    Ok(Json(CheckHistoryResponse {
+        items,
+        total: total.0,
+        limit,
+        offset,
+    }))
 }
 
 async fn run_check_now(

@@ -2,6 +2,7 @@ mod api;
 mod checker;
 mod db;
 mod feishu;
+mod history;
 mod models;
 
 use axum::Router;
@@ -29,6 +30,9 @@ async fn main() -> anyhow::Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .build()?;
+
+    let history_retention = history::HistoryRetention::from_env();
+    history::spawn_cleanup_job(pool.clone(), history_retention);
 
     checker::spawn_scheduler(pool.clone(), client.clone());
 

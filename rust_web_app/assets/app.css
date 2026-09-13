@@ -206,6 +206,14 @@ select {
   margin-top: 0.25rem;
 }
 
+.history-actions {
+  margin-top: 0.75rem;
+}
+
+#history-panel[hidden] {
+  display: none !important;
+}
+
 .toast {
   position: fixed;
   bottom: 1.5rem;

@@ -88,6 +88,28 @@
         <tbody id="checks-body"></tbody>
       </table>
     </section>
+
+    <section class="card" id="history-panel" hidden>
+      <div class="card-head">
+        <h2 id="history-title">检测历史</h2>
+        <button type="button" id="history-close" class="btn">关闭</button>
+      </div>
+      <p class="hint" id="history-meta"></p>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>状态</th>
+            <th>延迟</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+      <div class="form-actions history-actions">
+        <button type="button" id="history-more" class="btn" hidden>加载更多</button>
+      </div>
+    </section>
   </main>
 
   <div id="toast" class="toast" hidden></div>

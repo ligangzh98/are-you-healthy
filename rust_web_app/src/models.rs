@@ -55,3 +55,21 @@ pub struct UpdateFeishuConfig {
 pub struct TestFeishuRequest {
     pub webhook_url: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct CheckRun {
+    pub id: i64,
+    pub check_id: i64,
+    pub status: String,
+    pub response_ms: Option<i64>,
+    pub error: Option<String>,
+    pub checked_at: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckHistoryResponse {
+    pub items: Vec<CheckRun>,
+    pub total: i64,
+    pub limit: u32,
+    pub offset: u32,
+}

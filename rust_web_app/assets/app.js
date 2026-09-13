@@ -41,6 +41,14 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;");
 }
 
+let historyState = { checkId: null, name: "", offset: 0, total: 0, limit: 50 };
+
+function runStatusBadge(status) {
+  if (status === "up") return '<span class="badge up">正常</span>';
+  if (status === "down") return '<span class="badge down">异常</span>';
+  return `<span class="badge unknown">${escapeHtml(status || "未知")}</span>`;
+}
+
 function formatTime(iso) {
   if (!iso) return "—";
   try {
@@ -92,6 +100,67 @@ document.getElementById("feishu-form").addEventListener("submit", async (e) => {
   }
 });
 
+function updateHistoryMeta() {
+  const el = document.getElementById("history-meta");
+  const shown = Math.min(historyState.offset, historyState.total);
+  el.textContent =
+    historyState.total === 0
+      ? "暂无历史记录（新检测开始后会自动写入）"
+      : `共 ${historyState.total} 条，已显示 ${shown} 条`;
+}
+
+async function loadHistory(append) {
+  if (!historyState.checkId) return;
+  const offset = append ? historyState.offset : 0;
+  const data = await api(
+    `/api/checks/${historyState.checkId}/history?limit=${historyState.limit}&offset=${offset}`
+  );
+  historyState.total = data.total;
+  historyState.offset = offset + data.items.length;
+
+  const tbody = document.getElementById("history-body");
+  const rows = data.items
+    .map(
+      (r) => `
+    <tr>
+      <td>${formatTime(r.checked_at)}</td>
+      <td>${runStatusBadge(r.status)}</td>
+      <td>${r.response_ms != null ? r.response_ms + " ms" : "—"}</td>
+      <td class="url-cell">${r.error ? escapeHtml(r.error) : "—"}</td>
+    </tr>`
+    )
+    .join("");
+
+  if (append) {
+    tbody.insertAdjacentHTML("beforeend", rows);
+  } else {
+    tbody.innerHTML =
+      rows || '<tr><td colspan="4" style="color:var(--muted)">暂无记录</td></tr>';
+  }
+
+  updateHistoryMeta();
+  const moreBtn = document.getElementById("history-more");
+  moreBtn.hidden = historyState.offset >= historyState.total;
+}
+
+async function openHistory(checkId) {
+  const check = await api("/api/checks/" + checkId);
+  historyState = { checkId, name: check.name, offset: 0, total: 0, limit: 50 };
+  document.getElementById("history-title").textContent = `检测历史 · ${check.name}`;
+  document.getElementById("history-panel").hidden = false;
+  await loadHistory(false);
+  document.getElementById("history-panel").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+document.getElementById("history-close").addEventListener("click", () => {
+  document.getElementById("history-panel").hidden = true;
+  historyState.checkId = null;
+});
+
+document.getElementById("history-more").addEventListener("click", () => {
+  loadHistory(true).catch((e) => toast(e.message));
+});
+
 async function loadChecks() {
   const checks = await api("/api/checks");
   const tbody = document.getElementById("checks-body");
@@ -110,6 +179,7 @@ async function loadChecks() {
       <td>${c.last_response_ms != null ? c.last_response_ms + " ms" : "—"}</td>
       <td>${formatTime(c.last_checked_at)}</td>
       <td>
+        <button type="button" class="btn-link" data-history="${c.id}">历史</button>
         <button type="button" class="btn-link" data-run="${c.id}">立即检测</button>
         <button type="button" class="btn-link" data-toggle="${c.id}" data-enabled="${c.enabled}">
           ${c.enabled ? "停用" : "启用"}
@@ -119,6 +189,12 @@ async function loadChecks() {
     </tr>`
     )
     .join("");
+
+  tbody.querySelectorAll("[data-history]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      openHistory(btn.dataset.history).catch((e) => toast(e.message));
+    });
+  });
 
   tbody.querySelectorAll("[data-run]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -134,6 +210,9 @@ async function loadChecks() {
               : updated.last_status || "未知";
         toast(`检测完成：${label}`);
         loadChecks();
+        if (historyState.checkId === id) {
+          loadHistory(false).catch(() => {});
+        }
       } catch (err) {
         toast("检测失败: " + err.message);
       } finally {
