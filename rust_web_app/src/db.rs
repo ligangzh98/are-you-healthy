@@ -81,6 +81,8 @@ pub async fn init_pool(db_path: &Path) -> anyhow::Result<SqlitePool> {
             response_ms INTEGER,
             error TEXT,
             checked_at TEXT NOT NULL,
+            request_message TEXT NOT NULL DEFAULT '',
+            response_message TEXT,
             FOREIGN KEY (check_id) REFERENCES health_checks(id) ON DELETE CASCADE
         );
         "#,
@@ -94,6 +96,14 @@ pub async fn init_pool(db_path: &Path) -> anyhow::Result<SqlitePool> {
     )
     .execute(&pool)
     .await?;
+
+    // 新系统：缺列时补齐（忽略已存在）
+    let _ = sqlx::query("ALTER TABLE check_runs ADD COLUMN request_message TEXT NOT NULL DEFAULT ''")
+        .execute(&pool)
+        .await;
+    let _ = sqlx::query("ALTER TABLE check_runs ADD COLUMN response_message TEXT")
+        .execute(&pool)
+        .await;
 
     Ok(pool)
 }

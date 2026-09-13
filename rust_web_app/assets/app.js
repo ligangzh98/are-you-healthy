@@ -42,6 +42,45 @@ function escapeHtml(s) {
 }
 
 let historyState = { checkId: null, name: "", offset: 0, total: 0, limit: 50 };
+let editingCheckId = null;
+
+function resetCheckForm() {
+  editingCheckId = null;
+  const form = document.getElementById("check-form");
+  form.reset();
+  document.getElementById("check-status").value = "200";
+  document.getElementById("check-interval").value = "60";
+  document.getElementById("check-enabled").checked = true;
+  document.getElementById("check-submit").textContent = "添加检查";
+  document.getElementById("check-cancel-edit").hidden = true;
+  document.getElementById("check-form-hint").textContent =
+    "填写下方表单添加新的健康检查。";
+}
+
+function beginEditCheck(check) {
+  editingCheckId = check.id;
+  document.getElementById("check-name").value = check.name;
+  document.getElementById("check-url").value = check.url;
+  document.getElementById("check-method").value = check.method || "GET";
+  document.getElementById("check-status").value = check.expected_status;
+  document.getElementById("check-interval").value = check.interval_secs;
+  document.getElementById("check-enabled").checked = !!check.enabled;
+  document.getElementById("check-submit").textContent = "保存修改";
+  document.getElementById("check-cancel-edit").hidden = false;
+  document.getElementById("check-form-hint").textContent = `正在编辑：${check.name}（ID ${check.id}）`;
+  document.getElementById("check-form").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function readCheckFormPayload() {
+  return {
+    name: document.getElementById("check-name").value.trim(),
+    url: document.getElementById("check-url").value.trim(),
+    method: document.getElementById("check-method").value,
+    expected_status: Number(document.getElementById("check-status").value),
+    interval_secs: Number(document.getElementById("check-interval").value),
+    enabled: document.getElementById("check-enabled").checked,
+  };
+}
 
 function runStatusBadge(status) {
   if (status === "up") return '<span class="badge up">正常</span>';
@@ -127,6 +166,23 @@ async function loadHistory(append) {
       <td>${runStatusBadge(r.status)}</td>
       <td>${r.response_ms != null ? r.response_ms + " ms" : "—"}</td>
       <td class="url-cell">${r.error ? escapeHtml(r.error) : "—"}</td>
+    </tr>
+    <tr class="history-messages-row">
+      <td colspan="4">
+        <details class="run-messages">
+          <summary>请求 / 响应报文</summary>
+          <div class="message-pair">
+            <div class="message-block">
+              <strong>请求报文</strong>
+              <pre>${escapeHtml(r.request_message || "—")}</pre>
+            </div>
+            <div class="message-block">
+              <strong>响应报文</strong>
+              <pre>${escapeHtml(r.response_message || "（无响应，可能为连接失败）")}</pre>
+            </div>
+          </div>
+        </details>
+      </td>
     </tr>`
     )
     .join("");
@@ -163,6 +219,7 @@ document.getElementById("history-more").addEventListener("click", () => {
 
 async function loadChecks() {
   const checks = await api("/api/checks");
+  const checksById = new Map(checks.map((c) => [String(c.id), c]));
   const tbody = document.getElementById("checks-body");
   if (!checks.length) {
     tbody.innerHTML =
@@ -179,6 +236,7 @@ async function loadChecks() {
       <td>${c.last_response_ms != null ? c.last_response_ms + " ms" : "—"}</td>
       <td>${formatTime(c.last_checked_at)}</td>
       <td>
+        <button type="button" class="btn-link" data-edit="${c.id}">编辑</button>
         <button type="button" class="btn-link" data-history="${c.id}">历史</button>
         <button type="button" class="btn-link" data-run="${c.id}">立即检测</button>
         <button type="button" class="btn-link" data-toggle="${c.id}" data-enabled="${c.enabled}">
@@ -189,6 +247,13 @@ async function loadChecks() {
     </tr>`
     )
     .join("");
+
+  tbody.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const check = checksById.get(btn.dataset.edit);
+      if (check) beginEditCheck(check);
+    });
+  });
 
   tbody.querySelectorAll("[data-history]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -225,7 +290,11 @@ async function loadChecks() {
     btn.addEventListener("click", async () => {
       if (!confirm("确定删除该检查？")) return;
       try {
-        await api("/api/checks/" + btn.dataset.delete, { method: "DELETE" });
+        const deletedId = btn.dataset.delete;
+        await api("/api/checks/" + deletedId, { method: "DELETE" });
+        if (String(editingCheckId) === deletedId) {
+          resetCheckForm();
+        }
         toast("已删除");
         loadChecks();
       } catch (err) {
@@ -251,28 +320,32 @@ async function loadChecks() {
   });
 }
 
+document.getElementById("check-cancel-edit").addEventListener("click", () => {
+  resetCheckForm();
+  toast("已取消编辑");
+});
+
 document.getElementById("check-form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const payload = readCheckFormPayload();
   try {
-    await api("/api/checks", {
-      method: "POST",
-      body: JSON.stringify({
-        name: document.getElementById("check-name").value.trim(),
-        url: document.getElementById("check-url").value.trim(),
-        method: document.getElementById("check-method").value,
-        expected_status: Number(document.getElementById("check-status").value),
-        interval_secs: Number(document.getElementById("check-interval").value),
-        enabled: document.getElementById("check-enabled").checked,
-      }),
-    });
-    e.target.reset();
-    document.getElementById("check-status").value = "200";
-    document.getElementById("check-interval").value = "60";
-    document.getElementById("check-enabled").checked = true;
-    toast("检查已添加");
+    if (editingCheckId) {
+      await api("/api/checks/" + editingCheckId, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      toast("检查已更新");
+    } else {
+      await api("/api/checks", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      toast("检查已添加");
+    }
+    resetCheckForm();
     loadChecks();
   } catch (err) {
-    toast("添加失败: " + err.message);
+    toast((editingCheckId ? "保存失败: " : "添加失败: ") + err.message);
   }
 });
 

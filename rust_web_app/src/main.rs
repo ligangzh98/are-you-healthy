@@ -4,6 +4,7 @@ mod db;
 mod feishu;
 mod history;
 mod models;
+mod probe;
 
 use axum::Router;
 use std::net::SocketAddr;

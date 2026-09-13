@@ -32,6 +32,7 @@ cargo run
 | `HISTORY_RETENTION_DAYS` | `30` | 历史保留天数，`0` 表示不按时间删除 |
 | `HISTORY_MAX_PER_CHECK` | `1000` | 每条检查最多保留记录数，`0` 表示不限制 |
 | `HISTORY_CLEANUP_INTERVAL_SECS` | `3600` | 历史清理任务间隔（秒） |
+| `CHECK_CAPTURE_MAX_BYTES` | `8192` | 单次检测响应体写入历史的最大字节数 |
 
 ## 飞书配置
 
@@ -44,6 +45,6 @@ cargo run
 - `GET/POST /api/checks` — 列表 / 创建
 - `GET/PUT/DELETE /api/checks/:id` — 详情 / 更新 / 删除
 - `POST /api/checks/:id/run` — 立即执行一次检测（含告警逻辑）
-- `GET /api/checks/:id/history?limit=&offset=` — 检测历史（默认 limit=50，最大 200）
+- `GET /api/checks/:id/history?limit=&offset=` — 检测历史（含 `request_message` / `response_message` 报文）
 - `GET/PUT /api/feishu` — 飞书配置
 - `POST /api/feishu/test` — 发送测试告警（body 可选 `webhook_url`，默认用已保存配置）

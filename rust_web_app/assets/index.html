@@ -42,6 +42,7 @@
         <button type="button" id="btn-refresh" class="btn">刷新状态</button>
       </div>
 
+      <p class="hint" id="check-form-hint">填写下方表单添加新的健康检查。</p>
       <form id="check-form" class="form-grid">
         <label>
           名称
@@ -71,7 +72,10 @@
           <input type="checkbox" id="check-enabled" checked />
           启用
         </label>
-        <button type="submit" class="btn primary">添加检查</button>
+        <div class="form-actions check-form-actions">
+          <button type="submit" class="btn primary" id="check-submit">添加检查</button>
+          <button type="button" class="btn" id="check-cancel-edit" hidden>取消编辑</button>
+        </div>
       </form>
 
       <table class="table" id="checks-table">

@@ -141,8 +141,9 @@ async fn list_check_history(
         .await?;
 
     let items = sqlx::query_as::<_, CheckRun>(
-        "SELECT id, check_id, status, response_ms, error, checked_at \
-         FROM check_runs WHERE check_id = ? ORDER BY checked_at DESC LIMIT ? OFFSET ?",
+        "SELECT id, check_id, status, response_ms, error, checked_at, request_message, \
+         response_message FROM check_runs WHERE check_id = ? ORDER BY checked_at DESC \
+         LIMIT ? OFFSET ?",
     )
     .bind(id)
     .bind(limit)

@@ -1,49 +1,9 @@
 use crate::feishu;
 use crate::history;
 use crate::models::{FeishuConfig, HealthCheck};
+use crate::probe;
 use chrono::Utc;
 use sqlx::SqlitePool;
-use std::time::Instant;
-
-pub async fn run_check(
-    client: &reqwest::Client,
-    method: &str,
-    url: &str,
-    expected_status: i64,
-) -> (String, Option<i64>, Option<String>) {
-    let start = Instant::now();
-    let method = method.to_uppercase();
-
-    let request = match method.as_str() {
-        "GET" => client.get(url),
-        "HEAD" => client.head(url),
-        "POST" => client.post(url),
-        other => {
-            return (
-                "error".into(),
-                None,
-                Some(format!("unsupported method: {}", other)),
-            );
-        }
-    };
-
-    match request.send().await {
-        Ok(resp) => {
-            let ms = start.elapsed().as_millis() as i64;
-            let code = resp.status().as_u16() as i64;
-            if code == expected_status {
-                ("up".into(), Some(ms), None)
-            } else {
-                (
-                    "down".into(),
-                    Some(ms),
-                    Some(format!("status {} (expected {})", code, expected_status)),
-                )
-            }
-        }
-        Err(e) => ("down".into(), None, Some(e.to_string())),
-    }
-}
 
 pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
     let checks = sqlx::query_as::<_, crate::models::HealthCheck>(
@@ -83,13 +43,10 @@ pub async fn execute_health_check(
     check: &HealthCheck,
     feishu: Option<&FeishuConfig>,
 ) -> Result<(), sqlx::Error> {
-    let (status, response_ms, error) = run_check(
-        client,
-        &check.method,
-        &check.url,
-        check.expected_status,
-    )
-    .await;
+    let probe = probe::run_probe(client, &check.method, &check.url, check.expected_status).await;
+    let status = probe.status;
+    let response_ms = probe.response_ms;
+    let error = probe.error;
 
     let checked_at = Utc::now().to_rfc3339();
     let prev_status = check.last_status.as_deref();
@@ -106,7 +63,17 @@ pub async fn execute_health_check(
     .execute(pool)
     .await?;
 
-    history::insert_run(pool, check.id, &status, response_ms, &error, &checked_at).await?;
+    history::insert_run(
+        pool,
+        check.id,
+        &status,
+        response_ms,
+        &error,
+        &checked_at,
+        &probe.request_message,
+        &probe.response_message,
+    )
+    .await?;
 
     let became_down = status == "down" && prev_status != Some("down");
     let still_down = status == "down";

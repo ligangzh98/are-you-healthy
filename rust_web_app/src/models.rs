@@ -64,6 +64,8 @@ pub struct CheckRun {
     pub response_ms: Option<i64>,
     pub error: Option<String>,
     pub checked_at: String,
+    pub request_message: String,
+    pub response_message: Option<String>,
 }
 
 #[derive(Debug, Serialize)]

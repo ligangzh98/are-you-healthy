@@ -33,16 +33,20 @@ pub async fn insert_run(
     response_ms: Option<i64>,
     error: &Option<String>,
     checked_at: &str,
+    request_message: &str,
+    response_message: &Option<String>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
-        "INSERT INTO check_runs (check_id, status, response_ms, error, checked_at) \
-         VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO check_runs (check_id, status, response_ms, error, checked_at, \
+         request_message, response_message) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(check_id)
     .bind(status)
     .bind(response_ms)
     .bind(error)
     .bind(checked_at)
+    .bind(request_message)
+    .bind(response_message)
     .execute(pool)
     .await?;
     Ok(())
