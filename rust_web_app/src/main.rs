@@ -5,6 +5,7 @@ mod feishu;
 mod history;
 mod models;
 mod probe;
+mod pushplus;
 
 use axum::Router;
 use std::net::SocketAddr;

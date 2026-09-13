@@ -97,6 +97,59 @@ function formatTime(iso) {
   }
 }
 
+async function loadPushplus() {
+  const cfg = await api("/api/pushplus");
+  document.getElementById("pushplus-token").value = cfg.token || "";
+  document.getElementById("pushplus-cooldown").value = cfg.alert_cooldown_secs || 300;
+  document.getElementById("pushplus-enabled").checked = !!cfg.enabled;
+}
+
+function bindPushplusForm() {
+  const testBtn = document.getElementById("pushplus-test");
+  const form = document.getElementById("pushplus-form");
+  if (!testBtn || !form) return;
+
+  testBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    testBtn.disabled = true;
+    const token = document.getElementById("pushplus-token").value.trim();
+    if (!token) {
+      toast("请先填写或保存 PushPlus Token");
+      testBtn.disabled = false;
+      return;
+    }
+    try {
+      await api("/api/pushplus/test", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      toast("PushPlus 测试已提交，请在微信服务号查看");
+    } catch (err) {
+      toast("测试失败: " + err.message);
+    } finally {
+      testBtn.disabled = false;
+    }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api("/api/pushplus", {
+        method: "PUT",
+        body: JSON.stringify({
+          token: document.getElementById("pushplus-token").value.trim(),
+          alert_cooldown_secs: Number(document.getElementById("pushplus-cooldown").value),
+          enabled: document.getElementById("pushplus-enabled").checked,
+        }),
+      });
+      toast("PushPlus 配置已保存");
+    } catch (err) {
+      toast("保存失败: " + err.message);
+    }
+  });
+}
+
 async function loadFeishu() {
   const cfg = await api("/api/feishu");
   document.getElementById("feishu-webhook").value = cfg.webhook_url || "";
@@ -353,6 +406,9 @@ document.getElementById("btn-refresh").addEventListener("click", () => {
   loadChecks().then(() => toast("已刷新"));
 });
 
+bindPushplusForm();
+
 loadFeishu().catch((e) => toast(e.message));
+loadPushplus().catch((e) => toast(e.message));
 loadChecks().catch((e) => toast(e.message));
 setInterval(() => loadChecks().catch(() => {}), 15000);

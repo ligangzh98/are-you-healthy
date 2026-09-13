@@ -9,7 +9,7 @@
 <body>
   <header class="header">
     <h1>Are You Healthy</h1>
-    <p>配置 HTTP 健康检查，异常时通过飞书机器人告警</p>
+    <p>配置 HTTP 健康检查，异常时通过飞书或 PushPlus 推送告警</p>
   </header>
 
   <main class="layout">
@@ -34,6 +34,32 @@
         </div>
       </form>
       <p class="hint">在飞书群中添加「自定义机器人」，复制 Webhook 地址填入上方。</p>
+    </section>
+
+    <section class="card">
+      <h2>PushPlus 告警</h2>
+      <form id="pushplus-form" class="form-grid">
+        <label>
+          用户 Token
+          <input type="password" id="pushplus-token" autocomplete="off" placeholder="在 pushplus 个人中心复制" />
+        </label>
+        <label>
+          重复告警间隔（秒）
+          <input type="number" id="pushplus-cooldown" min="60" value="300" />
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="pushplus-enabled" />
+          启用 PushPlus 告警
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn primary">保存 PushPlus 配置</button>
+          <button type="button" id="pushplus-test" class="btn">发送测试消息</button>
+        </div>
+      </form>
+      <p class="hint">
+        在 <a href="https://www.pushplus.plus/push1.html" target="_blank" rel="noopener">pushplus(推送加)</a>
+        登录后复制用户 Token；测试与告警通过官方 <code>POST /send</code> 接口发送（template=txt）。
+      </p>
     </section>
 
     <section class="card">
@@ -117,6 +143,6 @@
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=2"></script>
 </body>
 </html>

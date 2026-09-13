@@ -2,8 +2,10 @@ use crate::checker;
 use crate::feishu;
 use crate::models::{
     CheckHistoryResponse, CheckRun, CreateHealthCheck, FeishuConfig, HealthCheck,
-    TestFeishuRequest, UpdateFeishuConfig, UpdateHealthCheck,
+    PushplusConfig, TestFeishuRequest, TestPushplusRequest, UpdateFeishuConfig,
+    UpdateHealthCheck, UpdatePushplusConfig,
 };
+use crate::pushplus;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -29,6 +31,8 @@ pub fn router() -> Router<AppState> {
         .route("/api/checks/:id/history", get(list_check_history))
         .route("/api/feishu", get(get_feishu).put(update_feishu))
         .route("/api/feishu/test", post(test_feishu))
+        .route("/api/pushplus", get(get_pushplus).put(update_pushplus))
+        .route("/api/pushplus/test", post(test_pushplus))
 }
 
 async fn list_checks(State(state): State<AppState>) -> Result<Json<Vec<HealthCheck>>, AppError> {
@@ -166,7 +170,15 @@ async fn run_check_now(
     let check = get_check(State(state.clone()), Path(id)).await?.0;
 
     let feishu = checker::load_feishu_config(&state.pool).await;
-    checker::execute_health_check(&state.pool, &state.http, &check, feishu.as_ref()).await;
+    let pushplus = checker::load_pushplus_config(&state.pool).await;
+    checker::execute_health_check(
+        &state.pool,
+        &state.http,
+        &check,
+        feishu.as_ref(),
+        pushplus.as_ref(),
+    )
+    .await;
 
     get_check(State(state), Path(id)).await
 }
@@ -242,6 +254,70 @@ async fn test_feishu(
     );
 
     feishu::send_text_alert(&state.http, &webhook_url, &text)
+        .await
+        .map_err(|e| AppError::Upstream(e.to_string()))?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_pushplus(State(state): State<AppState>) -> Result<Json<PushplusConfig>, AppError> {
+    let row = sqlx::query_as::<_, PushplusConfig>(
+        "SELECT id, token, enabled, alert_cooldown_secs FROM pushplus_config WHERE id = 1",
+    )
+    .fetch_one(&state.pool)
+    .await?;
+    Ok(Json(row))
+}
+
+async fn update_pushplus(
+    State(state): State<AppState>,
+    Json(body): Json<UpdatePushplusConfig>,
+) -> Result<Json<PushplusConfig>, AppError> {
+    let existing = get_pushplus(State(state.clone())).await?.0;
+
+    let token = body.token.unwrap_or(existing.token);
+    let enabled = body.enabled.unwrap_or(existing.enabled);
+    let alert_cooldown_secs = body
+        .alert_cooldown_secs
+        .unwrap_or(existing.alert_cooldown_secs)
+        .max(60);
+
+    sqlx::query(
+        "UPDATE pushplus_config SET token = ?, enabled = ?, alert_cooldown_secs = ? WHERE id = 1",
+    )
+    .bind(token)
+    .bind(enabled)
+    .bind(alert_cooldown_secs)
+    .execute(&state.pool)
+    .await?;
+
+    get_pushplus(State(state)).await
+}
+
+async fn test_pushplus(
+    State(state): State<AppState>,
+    Json(body): Json<TestPushplusRequest>,
+) -> Result<StatusCode, AppError> {
+    let token = match body
+        .token
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+    {
+        Some(t) => t,
+        None => get_pushplus(State(state.clone())).await?.0.token,
+    };
+
+    if token.is_empty() {
+        return Err(AppError::BadRequest("请先填写 PushPlus Token"));
+    }
+
+    let title = "Are You Healthy 测试消息";
+    let content = format!(
+        "PushPlus 告警通道正常。\n时间: {}",
+        feishu::format_time_east8()
+    );
+
+    pushplus::send_message(&state.http, &token, title, &content)
         .await
         .map_err(|e| AppError::Upstream(e.to_string()))?;
 

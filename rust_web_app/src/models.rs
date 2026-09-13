@@ -57,6 +57,26 @@ pub struct TestFeishuRequest {
 }
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow)]
+pub struct PushplusConfig {
+    pub id: i64,
+    pub token: String,
+    pub enabled: bool,
+    pub alert_cooldown_secs: i64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePushplusConfig {
+    pub token: Option<String>,
+    pub enabled: Option<bool>,
+    pub alert_cooldown_secs: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TestPushplusRequest {
+    pub token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow)]
 pub struct CheckRun {
     pub id: i64,
     pub check_id: i64,

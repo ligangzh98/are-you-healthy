@@ -6,6 +6,7 @@
 
 - 增删改查健康检查（URL、方法、期望状态码、间隔、启用/停用）
 - 飞书自定义机器人 Webhook 告警（首次故障、冷却期内重复提醒、恢复通知）
+- PushPlus（推送加）Token 告警，与飞书可并行启用
 - 每 5 秒调度一次，按各条目 `interval_secs` 执行探测
 - 每次检测写入历史记录，可按条目分页查询
 - 后台定时清理过期/超量历史（可配置）
@@ -40,6 +41,12 @@ cargo run
 2. 复制 Webhook URL 到管理页「飞书告警」
 3. 勾选「启用飞书告警」并保存
 
+## PushPlus 配置
+
+1. 打开 [pushplus 一对一消息](https://www.pushplus.plus/push1.html) 并登录
+2. 复制**用户 Token** 到管理页「PushPlus 告警」（需完成实名认证方可调用发送接口）
+3. 勾选「启用 PushPlus 告警」并保存；可用「发送测试消息」验证
+
 ## API 摘要
 
 - `GET/POST /api/checks` — 列表 / 创建
@@ -48,3 +55,5 @@ cargo run
 - `GET /api/checks/:id/history?limit=&offset=` — 检测历史（含 `request_message` / `response_message` 报文）
 - `GET/PUT /api/feishu` — 飞书配置
 - `POST /api/feishu/test` — 发送测试告警（body 可选 `webhook_url`，默认用已保存配置）
+- `GET/PUT /api/pushplus` — PushPlus 配置（`token`、`enabled`、`alert_cooldown_secs`）
+- `POST /api/pushplus/test` — 测试 PushPlus（body 可选 `token`）

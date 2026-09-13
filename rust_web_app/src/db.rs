@@ -62,6 +62,28 @@ pub async fn init_pool(db_path: &Path) -> anyhow::Result<SqlitePool> {
 
     sqlx::query(
         r#"
+        CREATE TABLE IF NOT EXISTS pushplus_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            token TEXT NOT NULL DEFAULT '',
+            enabled INTEGER NOT NULL DEFAULT 0,
+            alert_cooldown_secs INTEGER NOT NULL DEFAULT 300
+        );
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        INSERT OR IGNORE INTO pushplus_config (id, token, enabled, alert_cooldown_secs)
+        VALUES (1, '', 0, 300);
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
         CREATE TABLE IF NOT EXISTS alert_state (
             check_id INTEGER PRIMARY KEY,
             last_alert_at TEXT,
