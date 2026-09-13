@@ -143,20 +143,20 @@ async fn send_down_alerts(
 
     let mut sent = false;
 
-    if let Some(cfg) = feishu {
-        if cfg.enabled && !cfg.webhook_url.is_empty() {
-            match feishu::send_text_alert(client, &cfg.webhook_url, &feishu_body).await {
-                Ok(()) => sent = true,
-                Err(e) => tracing::warn!("feishu alert failed for {}: {}", check.name, e),
-            }
-        }
-    }
-
     if let Some(cfg) = pushplus {
         if cfg.enabled && !cfg.token.is_empty() {
             match pushplus::send_message(client, &cfg.token, &title, &push_body).await {
                 Ok(()) => sent = true,
                 Err(e) => tracing::warn!("pushplus alert failed for {}: {}", check.name, e),
+            }
+        }
+    }
+
+    if let Some(cfg) = feishu {
+        if cfg.enabled && !cfg.webhook_url.is_empty() {
+            match feishu::send_text_alert(client, &cfg.webhook_url, &feishu_body).await {
+                Ok(()) => sent = true,
+                Err(e) => tracing::warn!("feishu alert failed for {}: {}", check.name, e),
             }
         }
     }
