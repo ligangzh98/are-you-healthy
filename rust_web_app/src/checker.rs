@@ -63,7 +63,7 @@ pub async fn execute_health_check(
     .execute(pool)
     .await?;
 
-    history::insert_run(
+    if let Err(e) = history::insert_run(
         pool,
         check.id,
         &status,
@@ -73,7 +73,14 @@ pub async fn execute_health_check(
         &probe.request_message,
         &probe.response_message,
     )
-    .await?;
+    .await
+    {
+        tracing::warn!(
+            "history insert failed for check {} (alerts will still run): {}",
+            check.id,
+            e
+        );
+    }
 
     let became_down = status == "down" && prev_status != Some("down");
     let still_down = status == "down";
