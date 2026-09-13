@@ -1,12 +1,11 @@
 use crate::checkpoint_db;
 use crate::checkpoints;
 use crate::checker;
+use crate::config;
 use crate::feishu;
 use crate::models::{
     CheckHistoryResponse, CheckRun, CheckpointsResponse, CreateHealthCheck,
-    CheckpointInput, FeishuConfig, HealthCheck, PushplusConfig, ReplaceCheckpointsBody,
-    TestFeishuRequest, TestPushplusRequest, UpdateFeishuConfig, UpdateHealthCheck,
-    UpdatePushplusConfig,
+    CheckpointInput, HealthCheck, ReplaceCheckpointsBody, UpdateHealthCheck,
 };
 use crate::pushplus;
 use axum::extract::{Path, Query, State};
@@ -36,9 +35,7 @@ pub fn router() -> Router<AppState> {
             "/api/checks/:id/checkpoints",
             get(list_checkpoints).put(replace_checkpoints),
         )
-        .route("/api/feishu", get(get_feishu).put(update_feishu))
         .route("/api/feishu/test", post(test_feishu))
-        .route("/api/pushplus", get(get_pushplus).put(update_pushplus))
         .route("/api/pushplus/test", post(test_pushplus))
 }
 
@@ -225,14 +222,13 @@ async fn run_check_now(
 ) -> Result<Json<HealthCheck>, AppError> {
     let check = get_check(State(state.clone()), Path(id)).await?.0;
 
-    let feishu = checker::load_feishu_config(&state.pool).await;
-    let pushplus = checker::load_pushplus_config(&state.pool).await;
+    let cfg = config::get();
     checker::execute_health_check(
         &state.pool,
         &state.http,
         &check,
-        feishu.as_ref(),
-        pushplus.as_ref(),
+        Some(&cfg.feishu),
+        Some(&cfg.pushplus),
     )
     .await;
 
@@ -253,55 +249,14 @@ async fn delete_check(
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_feishu(State(state): State<AppState>) -> Result<Json<FeishuConfig>, AppError> {
-    let row = sqlx::query_as::<_, FeishuConfig>(
-        "SELECT id, webhook_url, enabled, alert_cooldown_secs FROM feishu_config WHERE id = 1",
-    )
-    .fetch_one(&state.pool)
-    .await?;
-    Ok(Json(row))
-}
-
-async fn update_feishu(
-    State(state): State<AppState>,
-    Json(body): Json<UpdateFeishuConfig>,
-) -> Result<Json<FeishuConfig>, AppError> {
-    let existing = get_feishu(State(state.clone())).await?.0;
-
-    let webhook_url = body.webhook_url.unwrap_or(existing.webhook_url);
-    let enabled = body.enabled.unwrap_or(existing.enabled);
-    let alert_cooldown_secs = body
-        .alert_cooldown_secs
-        .unwrap_or(existing.alert_cooldown_secs)
-        .max(60);
-
-    sqlx::query(
-        "UPDATE feishu_config SET webhook_url = ?, enabled = ?, alert_cooldown_secs = ? WHERE id = 1",
-    )
-    .bind(webhook_url)
-    .bind(enabled)
-    .bind(alert_cooldown_secs)
-    .execute(&state.pool)
-    .await?;
-
-    get_feishu(State(state)).await
-}
-
-async fn test_feishu(
-    State(state): State<AppState>,
-    Json(body): Json<TestFeishuRequest>,
-) -> Result<StatusCode, AppError> {
-    let webhook_url = match body
-        .webhook_url
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-    {
-        Some(url) => url,
-        None => get_feishu(State(state.clone())).await?.0.webhook_url,
-    };
-
+async fn test_feishu(State(state): State<AppState>) -> Result<StatusCode, AppError> {
+    let cfg = config::get();
+    if !cfg.feishu.enabled {
+        return Err(AppError::BadRequest("config.toml 中飞书告警未启用"));
+    }
+    let webhook_url = cfg.feishu.webhook_url.trim();
     if webhook_url.is_empty() {
-        return Err(AppError::BadRequest("请先填写 Webhook URL"));
+        return Err(AppError::BadRequest("config.toml 中未配置飞书 webhook_url"));
     }
 
     let text = format!(
@@ -309,62 +264,21 @@ async fn test_feishu(
         feishu::format_time_east8()
     );
 
-    feishu::send_text_alert(&state.http, &webhook_url, &text)
+    feishu::send_text_alert(&state.http, webhook_url, &text)
         .await
         .map_err(|e| AppError::Upstream(e.to_string()))?;
 
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn get_pushplus(State(state): State<AppState>) -> Result<Json<PushplusConfig>, AppError> {
-    let row = sqlx::query_as::<_, PushplusConfig>(
-        "SELECT id, token, enabled, alert_cooldown_secs FROM pushplus_config WHERE id = 1",
-    )
-    .fetch_one(&state.pool)
-    .await?;
-    Ok(Json(row))
-}
-
-async fn update_pushplus(
-    State(state): State<AppState>,
-    Json(body): Json<UpdatePushplusConfig>,
-) -> Result<Json<PushplusConfig>, AppError> {
-    let existing = get_pushplus(State(state.clone())).await?.0;
-
-    let token = body.token.unwrap_or(existing.token);
-    let enabled = body.enabled.unwrap_or(existing.enabled);
-    let alert_cooldown_secs = body
-        .alert_cooldown_secs
-        .unwrap_or(existing.alert_cooldown_secs)
-        .max(60);
-
-    sqlx::query(
-        "UPDATE pushplus_config SET token = ?, enabled = ?, alert_cooldown_secs = ? WHERE id = 1",
-    )
-    .bind(token)
-    .bind(enabled)
-    .bind(alert_cooldown_secs)
-    .execute(&state.pool)
-    .await?;
-
-    get_pushplus(State(state)).await
-}
-
-async fn test_pushplus(
-    State(state): State<AppState>,
-    Json(body): Json<TestPushplusRequest>,
-) -> Result<StatusCode, AppError> {
-    let token = match body
-        .token
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-    {
-        Some(t) => t,
-        None => get_pushplus(State(state.clone())).await?.0.token,
-    };
-
+async fn test_pushplus(State(state): State<AppState>) -> Result<StatusCode, AppError> {
+    let cfg = config::get();
+    if !cfg.pushplus.enabled {
+        return Err(AppError::BadRequest("config.toml 中 PushPlus 告警未启用"));
+    }
+    let token = cfg.pushplus.token.trim();
     if token.is_empty() {
-        return Err(AppError::BadRequest("请先填写 PushPlus Token"));
+        return Err(AppError::BadRequest("config.toml 中未配置 pushplus token"));
     }
 
     let title = "Are You Healthy 测试消息";
@@ -373,7 +287,7 @@ async fn test_pushplus(
         feishu::format_time_east8()
     );
 
-    pushplus::send_message(&state.http, &token, title, &content)
+    pushplus::send_message(&state.http, token, title, &content)
         .await
         .map_err(|e| AppError::Upstream(e.to_string()))?;
 

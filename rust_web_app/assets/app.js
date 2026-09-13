@@ -170,101 +170,6 @@ function formatTime(iso) {
   }
 }
 
-async function loadPushplus() {
-  const cfg = await api("/api/pushplus");
-  document.getElementById("pushplus-token").value = cfg.token || "";
-  document.getElementById("pushplus-cooldown").value = cfg.alert_cooldown_secs || 300;
-  document.getElementById("pushplus-enabled").checked = !!cfg.enabled;
-}
-
-function bindPushplusForm() {
-  const testBtn = document.getElementById("pushplus-test");
-  const form = document.getElementById("pushplus-form");
-  if (!testBtn || !form) return;
-
-  testBtn.addEventListener("click", async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    testBtn.disabled = true;
-    const token = document.getElementById("pushplus-token").value.trim();
-    if (!token) {
-      toast("请先填写或保存 PushPlus Token");
-      testBtn.disabled = false;
-      return;
-    }
-    try {
-      await api("/api/pushplus/test", {
-        method: "POST",
-        body: JSON.stringify({ token }),
-      });
-      toast("PushPlus 测试已提交，请在微信服务号查看");
-    } catch (err) {
-      toast("测试失败: " + err.message);
-    } finally {
-      testBtn.disabled = false;
-    }
-  });
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    try {
-      await api("/api/pushplus", {
-        method: "PUT",
-        body: JSON.stringify({
-          token: document.getElementById("pushplus-token").value.trim(),
-          alert_cooldown_secs: Number(document.getElementById("pushplus-cooldown").value),
-          enabled: document.getElementById("pushplus-enabled").checked,
-        }),
-      });
-      toast("PushPlus 配置已保存");
-    } catch (err) {
-      toast("保存失败: " + err.message);
-    }
-  });
-}
-
-async function loadFeishu() {
-  const cfg = await api("/api/feishu");
-  document.getElementById("feishu-webhook").value = cfg.webhook_url || "";
-  document.getElementById("feishu-cooldown").value = cfg.alert_cooldown_secs || 300;
-  document.getElementById("feishu-enabled").checked = !!cfg.enabled;
-}
-
-document.getElementById("feishu-test").addEventListener("click", async () => {
-  const btn = document.getElementById("feishu-test");
-  btn.disabled = true;
-  try {
-    await api("/api/feishu/test", {
-      method: "POST",
-      body: JSON.stringify({
-        webhook_url: document.getElementById("feishu-webhook").value.trim(),
-      }),
-    });
-    toast("测试消息已发送，请在飞书群查看");
-  } catch (err) {
-    toast("测试失败: " + err.message);
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-document.getElementById("feishu-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  try {
-    await api("/api/feishu", {
-      method: "PUT",
-      body: JSON.stringify({
-        webhook_url: document.getElementById("feishu-webhook").value.trim(),
-        alert_cooldown_secs: Number(document.getElementById("feishu-cooldown").value),
-        enabled: document.getElementById("feishu-enabled").checked,
-      }),
-    });
-    toast("飞书配置已保存");
-  } catch (err) {
-    toast("保存失败: " + err.message);
-  }
-});
-
 function updateHistoryMeta() {
   const el = document.getElementById("history-meta");
   const shown = Math.min(historyState.offset, historyState.total);
@@ -488,10 +393,39 @@ document.getElementById("btn-refresh").addEventListener("click", () => {
   loadChecks().then(() => toast("已刷新"));
 });
 
-bindPushplusForm();
+function bindAlertTests() {
+  const feishuBtn = document.getElementById("feishu-test");
+  const pushplusBtn = document.getElementById("pushplus-test");
+  if (feishuBtn) {
+    feishuBtn.addEventListener("click", async () => {
+      feishuBtn.disabled = true;
+      try {
+        await api("/api/feishu/test", { method: "POST", body: "{}" });
+        toast("飞书测试已发送，请在群内查看");
+      } catch (err) {
+        toast("飞书测试失败: " + err.message);
+      } finally {
+        feishuBtn.disabled = false;
+      }
+    });
+  }
+  if (pushplusBtn) {
+    pushplusBtn.addEventListener("click", async () => {
+      pushplusBtn.disabled = true;
+      try {
+        await api("/api/pushplus/test", { method: "POST", body: "{}" });
+        toast("PushPlus 测试已提交，请在微信服务号查看");
+      } catch (err) {
+        toast("PushPlus 测试失败: " + err.message);
+      } finally {
+        pushplusBtn.disabled = false;
+      }
+    });
+  }
+}
+
+bindAlertTests();
 renderCheckpointRows([]);
 
-loadFeishu().catch((e) => toast(e.message));
-loadPushplus().catch((e) => toast(e.message));
 loadChecks().catch((e) => toast(e.message));
 setInterval(() => loadChecks().catch(() => {}), 15000);

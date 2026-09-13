@@ -38,18 +38,20 @@ cargo run
 | `scheduler` | `tick_secs` | `5` | 调度扫描间隔（秒） |
 | `http_client` | `timeout_secs` | `15` | 探测 HTTP 超时 |
 | `log` | `level` | `info` | 日志级别（可被 `RUST_LOG` 覆盖） |
+| `feishu` | `webhook_url` / `enabled` / `alert_cooldown_secs` | 空 / `false` / `300` | 飞书机器人告警 |
+| `pushplus` | `token` / `enabled` / `alert_cooldown_secs` | 空 / `false` / `300` | PushPlus 告警 |
+
+告警通道仅在 `config.toml` 中配置，程序启动时加载，**管理页不提供编辑入口**。
 
 ## 飞书配置
 
 1. 在飞书群 → 设置 → 群机器人 → 添加「自定义机器人」
-2. 复制 Webhook URL 到管理页「飞书告警」
-3. 勾选「启用飞书告警」并保存
+2. 将 Webhook URL 写入 `config.toml` 的 `[feishu]`，设置 `enabled = true` 后重启服务
 
 ## PushPlus 配置
 
 1. 打开 [pushplus 一对一消息](https://www.pushplus.plus/push1.html) 并登录
-2. 复制**用户 Token** 到管理页「PushPlus 告警」（需完成实名认证方可调用发送接口）
-3. 勾选「启用 PushPlus 告警」并保存；可用「发送测试消息」验证
+2. 将用户 Token 写入 `config.toml` 的 `[pushplus]`（需完成实名认证方可调用发送接口），`enabled = true` 后重启服务
 
 ## API 摘要
 
@@ -58,7 +60,5 @@ cargo run
 - `GET/PUT /api/checks/:id/checkpoints` — 检查点列表 / 全量替换
 - `POST /api/checks/:id/run` — 立即执行一次检测（含告警逻辑）
 - `GET /api/checks/:id/history?limit=&offset=` — 检测历史（含 `request_message` / `response_message` 报文）
-- `GET/PUT /api/feishu` — 飞书配置
-- `POST /api/feishu/test` — 发送测试告警（body 可选 `webhook_url`，默认用已保存配置）
-- `GET/PUT /api/pushplus` — PushPlus 配置（`token`、`enabled`、`alert_cooldown_secs`）
-- `POST /api/pushplus/test` — 测试 PushPlus（body 可选 `token`）
+- `POST /api/feishu/test` — 按 `config.toml` 的 `[feishu]` 发送测试消息
+- `POST /api/pushplus/test` — 按 `config.toml` 的 `[pushplus]` 发送测试消息

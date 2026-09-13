@@ -14,52 +14,14 @@
 
   <main class="layout">
     <section class="card">
-      <h2>飞书告警</h2>
-      <form id="feishu-form" class="form-grid">
-        <label>
-          Webhook URL
-          <input type="url" id="feishu-webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
-        </label>
-        <label>
-          重复告警间隔（秒）
-          <input type="number" id="feishu-cooldown" min="60" value="300" />
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" id="feishu-enabled" />
-          启用飞书告警
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="btn primary">保存飞书配置</button>
-          <button type="button" id="feishu-test" class="btn">发送测试消息</button>
-        </div>
-      </form>
-      <p class="hint">在飞书群中添加「自定义机器人」，复制 Webhook 地址填入上方。</p>
-    </section>
-
-    <section class="card">
-      <h2>PushPlus 告警</h2>
-      <form id="pushplus-form" class="form-grid">
-        <label>
-          用户 Token
-          <input type="password" id="pushplus-token" autocomplete="off" placeholder="在 pushplus 个人中心复制" />
-        </label>
-        <label>
-          重复告警间隔（秒）
-          <input type="number" id="pushplus-cooldown" min="60" value="300" />
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" id="pushplus-enabled" />
-          启用 PushPlus 告警
-        </label>
-        <div class="form-actions">
-          <button type="submit" class="btn primary">保存 PushPlus 配置</button>
-          <button type="button" id="pushplus-test" class="btn">发送测试消息</button>
-        </div>
-      </form>
+      <h2>告警通道测试</h2>
       <p class="hint">
-        在 <a href="https://www.pushplus.plus/push1.html" target="_blank" rel="noopener">pushplus(推送加)</a>
-        登录后复制用户 Token；测试与告警通过官方 <code>POST /send</code> 接口发送（template=txt）。
+        使用 <code>config.toml</code> 中已启用的飞书 / PushPlus 配置发送测试消息（修改配置后需重启服务）。
       </p>
+      <div class="form-actions">
+        <button type="button" id="feishu-test" class="btn">飞书测试消息</button>
+        <button type="button" id="pushplus-test" class="btn">PushPlus 测试消息</button>
+      </div>
     </section>
 
     <section class="card">
@@ -163,6 +125,6 @@
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js?v=3"></script>
+  <script src="/app.js?v=5"></script>
 </body>
 </html>

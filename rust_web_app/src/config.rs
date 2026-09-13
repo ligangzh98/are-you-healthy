@@ -16,6 +16,24 @@ pub struct AppConfig {
     pub scheduler: SchedulerConfig,
     pub http_client: HttpClientConfig,
     pub log: LogConfig,
+    pub feishu: FeishuConfig,
+    pub pushplus: PushplusConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct FeishuConfig {
+    pub webhook_url: String,
+    pub enabled: bool,
+    pub alert_cooldown_secs: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct PushplusConfig {
+    pub token: String,
+    pub enabled: bool,
+    pub alert_cooldown_secs: i64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -80,6 +98,8 @@ impl Default for AppConfig {
             scheduler: SchedulerConfig::default(),
             http_client: HttpClientConfig::default(),
             log: LogConfig::default(),
+            feishu: FeishuConfig::default(),
+            pushplus: PushplusConfig::default(),
         }
     }
 }
@@ -145,6 +165,26 @@ impl Default for LogConfig {
     }
 }
 
+impl Default for FeishuConfig {
+    fn default() -> Self {
+        Self {
+            webhook_url: String::new(),
+            enabled: false,
+            alert_cooldown_secs: 300,
+        }
+    }
+}
+
+impl Default for PushplusConfig {
+    fn default() -> Self {
+        Self {
+            token: String::new(),
+            enabled: false,
+            alert_cooldown_secs: 300,
+        }
+    }
+}
+
 impl AppConfig {
     pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let path = path.as_ref();
@@ -164,6 +204,8 @@ impl AppConfig {
         cfg.scheduler.tick_secs = cfg.scheduler.tick_secs.max(1);
         cfg.history.cleanup_interval_secs = cfg.history.cleanup_interval_secs.max(60);
         cfg.http_client.timeout_secs = cfg.http_client.timeout_secs.max(1);
+        cfg.feishu.alert_cooldown_secs = cfg.feishu.alert_cooldown_secs.max(60);
+        cfg.pushplus.alert_cooldown_secs = cfg.pushplus.alert_cooldown_secs.max(60);
         cfg
     }
 

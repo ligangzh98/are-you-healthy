@@ -1,7 +1,8 @@
 use crate::checkpoint_db;
 use crate::feishu;
 use crate::history;
-use crate::models::{FeishuConfig, HealthCheck, PushplusConfig};
+use crate::config::{FeishuConfig, PushplusConfig};
+use crate::models::HealthCheck;
 use crate::pushplus;
 use crate::probe;
 use chrono::Utc;
@@ -24,8 +25,9 @@ pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
         }
     };
 
-    let feishu = load_feishu_config(&pool).await;
-    let pushplus_cfg = load_pushplus_config(&pool).await;
+    let app_cfg = crate::config::get();
+    let feishu = &app_cfg.feishu;
+    let pushplus_cfg = &app_cfg.pushplus;
 
     let now = Utc::now();
 
@@ -38,8 +40,8 @@ pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
             &pool,
             &client,
             &check,
-            feishu.as_ref(),
-            pushplus_cfg.as_ref(),
+            Some(feishu),
+            Some(pushplus_cfg),
         )
         .await;
     }
@@ -254,26 +256,6 @@ fn format_down_content(name: &str, url: &str, error: &Option<String>) -> String 
         detail,
         feishu::format_time_east8()
     )
-}
-
-pub async fn load_feishu_config(pool: &SqlitePool) -> Option<FeishuConfig> {
-    sqlx::query_as::<_, FeishuConfig>(
-        "SELECT id, webhook_url, enabled, alert_cooldown_secs FROM feishu_config WHERE id = 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
-}
-
-pub async fn load_pushplus_config(pool: &SqlitePool) -> Option<PushplusConfig> {
-    sqlx::query_as::<_, PushplusConfig>(
-        "SELECT id, token, enabled, alert_cooldown_secs FROM pushplus_config WHERE id = 1",
-    )
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
 }
 
 fn is_due(last_checked_at: &Option<String>, interval_secs: i64, now: &chrono::DateTime<Utc>) -> bool {

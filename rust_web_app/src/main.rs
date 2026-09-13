@@ -18,7 +18,8 @@ use tower_http::trace::TraceLayer;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cfg = config::AppConfig::load(config::default_config_path())?;
+    let config_path = config::default_config_path();
+    let cfg = config::AppConfig::load(&config_path)?;
     config::init(cfg);
     let cfg = config::get();
 
@@ -28,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::fmt().with_env_filter(log_filter).init();
 
-    tracing::info!("loaded configuration from {:?}", config::default_config_path());
+    tracing::info!("loaded configuration from {:?}", config_path);
 
     let pool = db::init_pool(&cfg.database_path()).await?;
 

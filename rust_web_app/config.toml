@@ -1,4 +1,4 @@
-# Are You Healthy 服务配置（修改后重启生效）
+# Are You Healthy 服务配置（修改后需重启服务生效）
 
 [server]
 host = "0.0.0.0"
@@ -31,3 +31,13 @@ timeout_secs = 15
 [log]
 # 若已设置环境变量 RUST_LOG，则优先生效
 level = "info"
+
+[feishu]
+webhook_url = ""
+enabled = false
+alert_cooldown_secs = 300
+
+[pushplus]
+token = ""
+enabled = false
+alert_cooldown_secs = 300
