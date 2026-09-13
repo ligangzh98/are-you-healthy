@@ -9,7 +9,6 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
-use chrono::Utc;
 use serde::Deserialize;
 use sqlx::SqlitePool;
 
@@ -239,7 +238,7 @@ async fn test_feishu(
 
     let text = format!(
         "【测试消息】Are You Healthy 飞书告警通道正常。\n时间: {}",
-        Utc::now().to_rfc3339()
+        feishu::format_time_east8()
     );
 
     feishu::send_text_alert(&state.http, &webhook_url, &text)
