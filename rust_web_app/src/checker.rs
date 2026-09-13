@@ -31,9 +31,7 @@ pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
             continue;
         }
 
-        if let Err(e) = execute_health_check(&pool, &client, &check, feishu.as_ref()).await {
-            tracing::error!("check {}: {}", check.id, e);
-        }
+        execute_health_check(&pool, &client, &check, feishu.as_ref()).await;
     }
 }
 
@@ -42,7 +40,7 @@ pub async fn execute_health_check(
     client: &reqwest::Client,
     check: &HealthCheck,
     feishu: Option<&FeishuConfig>,
-) -> Result<(), sqlx::Error> {
+) {
     let probe = probe::run_probe(client, &check.method, &check.url, check.expected_status).await;
     let status = probe.status;
     let response_ms = probe.response_ms;
@@ -51,7 +49,7 @@ pub async fn execute_health_check(
     let checked_at = Utc::now().to_rfc3339();
     let prev_status = check.last_status.as_deref();
 
-    sqlx::query(
+    if let Err(e) = sqlx::query(
         "UPDATE health_checks SET last_checked_at = ?, last_status = ?, \
          last_response_ms = ?, last_error = ? WHERE id = ?",
     )
@@ -61,7 +59,14 @@ pub async fn execute_health_check(
     .bind(&error)
     .bind(check.id)
     .execute(pool)
-    .await?;
+    .await
+    {
+        tracing::warn!(
+            "failed to update latest status for check {} (alerts will still run): {}",
+            check.id,
+            e
+        );
+    }
 
     if let Err(e) = history::insert_run(
         pool,
@@ -121,8 +126,6 @@ pub async fn execute_health_check(
             }
         }
     }
-
-    Ok(())
 }
 
 pub async fn load_feishu_config(pool: &SqlitePool) -> Option<FeishuConfig> {

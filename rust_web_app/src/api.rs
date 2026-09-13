@@ -166,8 +166,7 @@ async fn run_check_now(
     let check = get_check(State(state.clone()), Path(id)).await?.0;
 
     let feishu = checker::load_feishu_config(&state.pool).await;
-    checker::execute_health_check(&state.pool, &state.http, &check, feishu.as_ref())
-        .await?;
+    checker::execute_health_check(&state.pool, &state.http, &check, feishu.as_ref()).await;
 
     get_check(State(state), Path(id)).await
 }
