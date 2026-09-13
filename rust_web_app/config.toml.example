@@ -1,4 +1,5 @@
 # Are You Healthy 服务配置（修改后需重启服务生效）
+# 复制为 config.toml 后按需填写；config.toml 含密钥，请勿提交到 Git。
 
 [server]
 host = "0.0.0.0"

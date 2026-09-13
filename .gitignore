@@ -1,2 +1,3 @@
 rust_web_app/target/
 rust_web_app/data/
+rust_web_app/config.toml

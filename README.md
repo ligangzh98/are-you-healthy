@@ -17,14 +17,30 @@
 
 ```bash
 cd rust_web_app
+cp config.toml.example config.toml   # 首次：复制模板，再按需填写密钥
 cargo run
 ```
 
 浏览器打开 [http://localhost:8080](http://localhost:8080)。
 
+### 发布（GitHub Actions）
+
+推送 `v*` 标签（例如 `v0.1.0`）后，流水线会构建 **Linux x86_64** 静态链接可执行文件并创建 GitHub Release：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+发布包 `are-you-healthy-linux-x86_64-<tag>.zip` 内含 `are-you-healthy`、`config.toml`、`assets/` 与空的 `data/` 目录。解压后在同目录执行：
+
+```bash
+./are-you-healthy
+```
+
 ### 配置文件
 
-在 `rust_web_app/config.toml` 中修改服务参数（不存在时使用内置默认值）。主要项：
+仓库只跟踪 `rust_web_app/config.toml.example`。本地将它复制为 `config.toml` 后修改（含飞书 Webhook、PushPlus Token 等密钥，**勿提交**）。文件不存在时使用内置默认值。主要项：
 
 | 配置段 | 字段 | 默认值 | 说明 |
 |--------|------|--------|------|
