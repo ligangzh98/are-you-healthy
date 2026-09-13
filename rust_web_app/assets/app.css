@@ -308,6 +308,27 @@ select {
   margin-top: 0.25rem;
 }
 
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.filter-chips .chip {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.filter-chips .chip.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+  color: var(--accent);
+}
+
 .toast {
   position: fixed;
   bottom: 1.5rem;

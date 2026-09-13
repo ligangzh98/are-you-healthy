@@ -183,6 +183,24 @@ struct HistoryQuery {
     offset: Option<u32>,
 }
 
+#[derive(Debug, Deserialize)]
+struct AlertHistoryQuery {
+    limit: Option<u32>,
+    offset: Option<u32>,
+    kind: Option<String>,
+}
+
+fn normalize_alert_kind_filter(kind: Option<String>) -> Result<Option<String>, AppError> {
+    let kind = kind.map(|k| k.trim().to_string()).filter(|k| !k.is_empty() && k != "all");
+    if let Some(ref k) = kind {
+        const ALLOWED: &[&str] = &["down", "recovery", "alive_ping", "test"];
+        if !ALLOWED.contains(&k.as_str()) {
+            return Err(AppError::BadRequest("invalid alert kind filter"));
+        }
+    }
+    Ok(kind)
+}
+
 async fn list_check_history(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -238,23 +256,48 @@ async fn run_check_now(
 
 async fn list_alert_history(
     State(state): State<AppState>,
-    Query(query): Query<HistoryQuery>,
+    Query(query): Query<AlertHistoryQuery>,
 ) -> Result<Json<AlertHistoryResponse>, AppError> {
     let limit = query.limit.unwrap_or(50).clamp(1, 200);
     let offset = query.offset.unwrap_or(0);
+    let kind = normalize_alert_kind_filter(query.kind)?;
 
-    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM alert_deliveries")
-        .fetch_one(&state.pool)
-        .await?;
+    let total: (i64,) = match &kind {
+        Some(k) => {
+            sqlx::query_as("SELECT COUNT(*) FROM alert_deliveries WHERE kind = ?")
+                .bind(k)
+                .fetch_one(&state.pool)
+                .await?
+        }
+        None => sqlx::query_as("SELECT COUNT(*) FROM alert_deliveries")
+            .fetch_one(&state.pool)
+            .await?,
+    };
 
-    let items = sqlx::query_as::<_, AlertDelivery>(
-        "SELECT id, kind, channel, status, title, message, error, check_id, check_name, sent_at \
-         FROM alert_deliveries ORDER BY sent_at DESC LIMIT ? OFFSET ?",
-    )
-    .bind(limit)
-    .bind(offset)
-    .fetch_all(&state.pool)
-    .await?;
+    let items = match &kind {
+        Some(k) => {
+            sqlx::query_as::<_, AlertDelivery>(
+                "SELECT id, kind, channel, status, title, message, error, check_id, check_name, \
+                 sent_at FROM alert_deliveries WHERE kind = ? ORDER BY sent_at DESC LIMIT ? \
+                 OFFSET ?",
+            )
+            .bind(k)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.pool)
+            .await?
+        }
+        None => {
+            sqlx::query_as::<_, AlertDelivery>(
+                "SELECT id, kind, channel, status, title, message, error, check_id, check_name, \
+                 sent_at FROM alert_deliveries ORDER BY sent_at DESC LIMIT ? OFFSET ?",
+            )
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&state.pool)
+            .await?
+        }
+    };
 
     Ok(Json(AlertHistoryResponse {
         items,

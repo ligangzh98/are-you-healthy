@@ -29,6 +29,13 @@
         <h2>告警历史</h2>
         <button type="button" id="alert-history-refresh" class="btn">刷新</button>
       </div>
+      <div class="filter-chips" id="alert-kind-filters" role="group" aria-label="告警类型筛选">
+        <button type="button" class="btn chip active" data-kind="">全部</button>
+        <button type="button" class="btn chip" data-kind="down">故障告警</button>
+        <button type="button" class="btn chip" data-kind="recovery">恢复通知</button>
+        <button type="button" class="btn chip" data-kind="alive_ping">每日签到</button>
+        <button type="button" class="btn chip" data-kind="test">通道测试</button>
+      </div>
       <p class="hint" id="alert-history-meta"></p>
       <table class="table">
         <thead>
@@ -149,6 +156,6 @@
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js?v=6"></script>
+  <script src="/app.js?v=7"></script>
 </body>
 </html>

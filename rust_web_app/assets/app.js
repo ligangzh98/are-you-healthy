@@ -42,7 +42,7 @@ function escapeHtml(s) {
 }
 
 let historyState = { checkId: null, name: "", offset: 0, total: 0, limit: 50 };
-let alertHistoryState = { offset: 0, total: 0, limit: 50 };
+let alertHistoryState = { offset: 0, total: 0, limit: 50, kind: "" };
 let editingCheckId = null;
 
 const ALERT_KIND_LABELS = {
@@ -453,11 +453,27 @@ function renderAlertStatus(status) {
   return '<span class="status-pill failed">失败</span>';
 }
 
+function alertHistoryQueryParams(offset) {
+  const params = new URLSearchParams({
+    limit: String(alertHistoryState.limit),
+    offset: String(offset),
+  });
+  if (alertHistoryState.kind) {
+    params.set("kind", alertHistoryState.kind);
+  }
+  return params.toString();
+}
+
+function setAlertKindFilter(kind) {
+  alertHistoryState.kind = kind || "";
+  document.querySelectorAll("#alert-kind-filters .chip").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.kind === alertHistoryState.kind);
+  });
+}
+
 async function loadAlertHistory(append = false) {
   const offset = append ? alertHistoryState.offset : 0;
-  const data = await api(
-    `/api/alerts/history?limit=${alertHistoryState.limit}&offset=${offset}`
-  );
+  const data = await api(`/api/alerts/history?${alertHistoryQueryParams(offset)}`);
   alertHistoryState.total = data.total;
   alertHistoryState.offset = offset + data.items.length;
 
@@ -495,6 +511,13 @@ document.getElementById("alert-history-refresh").addEventListener("click", () =>
 
 document.getElementById("alert-history-more").addEventListener("click", () => {
   loadAlertHistory(true).catch((e) => toast(e.message));
+});
+
+document.getElementById("alert-kind-filters").addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  setAlertKindFilter(btn.dataset.kind || "");
+  loadAlertHistory(false).catch((err) => toast(err.message));
 });
 
 bindAlertTests();

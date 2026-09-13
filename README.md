@@ -81,4 +81,4 @@ git push origin v0.1.0
 - `GET /api/checks/:id/history?limit=&offset=` — 检测历史（含 `request_message` / `response_message` 报文）
 - `POST /api/feishu/test` — 按 `config.toml` 的 `[feishu]` 发送测试消息
 - `POST /api/pushplus/test` — 按 `config.toml` 的 `[pushplus]` 发送测试消息
-- `GET /api/alerts/history?limit=&offset=` — 告警发送历史（渠道、状态、内容）
+- `GET /api/alerts/history?limit=&offset=&kind=` — 告警发送历史（`kind` 可选：`down` / `recovery` / `alive_ping` / `test`）
