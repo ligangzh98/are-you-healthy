@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Are You Healthy — 健康检查</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <header class="header">
+    <h1>Are You Healthy</h1>
+    <p>配置 HTTP 健康检查，异常时通过飞书机器人告警</p>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <h2>飞书告警</h2>
+      <form id="feishu-form" class="form-grid">
+        <label>
+          Webhook URL
+          <input type="url" id="feishu-webhook" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
+        </label>
+        <label>
+          重复告警间隔（秒）
+          <input type="number" id="feishu-cooldown" min="60" value="300" />
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="feishu-enabled" />
+          启用飞书告警
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="btn primary">保存飞书配置</button>
+          <button type="button" id="feishu-test" class="btn">发送测试消息</button>
+        </div>
+      </form>
+      <p class="hint">在飞书群中添加「自定义机器人」，复制 Webhook 地址填入上方。</p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>检查条目</h2>
+        <button type="button" id="btn-refresh" class="btn">刷新状态</button>
+      </div>
+
+      <form id="check-form" class="form-grid">
+        <label>
+          名称
+          <input type="text" id="check-name" required placeholder="例如：官网 API" />
+        </label>
+        <label>
+          URL
+          <input type="url" id="check-url" required placeholder="https://example.com/health" />
+        </label>
+        <label>
+          方法
+          <select id="check-method">
+            <option value="GET">GET</option>
+            <option value="HEAD">HEAD</option>
+            <option value="POST">POST</option>
+          </select>
+        </label>
+        <label>
+          期望状态码
+          <input type="number" id="check-status" value="200" min="100" max="599" />
+        </label>
+        <label>
+          检查间隔（秒）
+          <input type="number" id="check-interval" value="60" min="10" />
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" id="check-enabled" checked />
+          启用
+        </label>
+        <button type="submit" class="btn primary">添加检查</button>
+      </form>
+
+      <table class="table" id="checks-table">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>URL</th>
+            <th>状态</th>
+            <th>延迟</th>
+            <th>上次检查</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="checks-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <script src="/app.js"></script>
+</body>
+</html>
