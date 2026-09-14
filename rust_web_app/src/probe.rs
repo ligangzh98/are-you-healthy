@@ -2,6 +2,11 @@ use crate::checkpoints::{evaluate_all, CheckpointRule};
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, Response};
 use std::str::FromStr;
+use std::time::Duration;
+
+/// 传输失败后的额外重试次数（不含首次请求）。
+const SEND_RETRY_COUNT: u32 = 2;
+const SEND_RETRY_DELAY: Duration = Duration::from_millis(3000);
 
 pub struct CheckProbeResult {
     pub status: String,
@@ -50,9 +55,16 @@ pub async fn run_probe(
     };
 
     let start = std::time::Instant::now();
-    let request = client.request(http_method, url);
 
-    match request.send().await {
+    let mut send_result = client.request(http_method.clone(), url).send().await;
+    let mut attempt = 0u32;
+    while send_result.is_err() && attempt < SEND_RETRY_COUNT {
+        tokio::time::sleep(SEND_RETRY_DELAY).await;
+        attempt += 1;
+        send_result = client.request(http_method.clone(), url).send().await;
+    }
+
+    match send_result {
         Ok(resp) => {
             let ms = start.elapsed().as_millis() as i64;
             let code = resp.status().as_u16() as i64;
