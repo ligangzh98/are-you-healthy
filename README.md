@@ -34,11 +34,19 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-发布包 `are-you-healthy-linux-x86_64-<tag>.zip` 内含 `are-you-healthy`、`config.toml`、`assets/` 与空的 `data/` 目录。解压后在同目录执行：
+发布包 `are-you-healthy-linux-x86_64-<tag>.zip` 解压后得到目录 `are-you-healthy-<tag>/`，内含：
+
+- `are-you-healthy` — 可执行文件（**同时提供 REST API 与管理页**，不是前后端分离部署）
+- `config.toml` — 配置模板
+- `assets/` — 管理页静态资源（由二进制内嵌路由挂载，需与可执行文件同目录）
+- `data/` — SQLite 等运行数据目录
 
 ```bash
+cd are-you-healthy-v0.1.5   # 目录名与 tag 一致
 ./are-you-healthy
 ```
+
+若希望发布物只有一个文件、不附带 `assets/` 目录，需要把静态资源编译进二进制（当前未做）；运行方式仍是一个进程单体服务。
 
 ### 配置文件
 

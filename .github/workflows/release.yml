@@ -37,13 +37,14 @@ jobs:
 
       - name: Package Linux release
         run: |
-          mkdir -p package
-          cp "target/x86_64-unknown-linux-musl/release/rust_web_app" "package/${APP_NAME}"
-          chmod +x "package/${APP_NAME}"
-          cp config.toml.example package/config.toml
-          cp -r assets package/
-          mkdir -p package/data
-          zip -rq "${APP_NAME}-linux-x86_64-${RELEASE_VERSION}.zip" package/
+          PKG_DIR="${APP_NAME}-${RELEASE_VERSION}"
+          mkdir -p "${PKG_DIR}"
+          cp "target/x86_64-unknown-linux-musl/release/rust_web_app" "${PKG_DIR}/${APP_NAME}"
+          chmod +x "${PKG_DIR}/${APP_NAME}"
+          cp config.toml.example "${PKG_DIR}/config.toml"
+          cp -r assets "${PKG_DIR}/"
+          mkdir -p "${PKG_DIR}/data"
+          zip -rq "${APP_NAME}-linux-x86_64-${RELEASE_VERSION}.zip" "${PKG_DIR}"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
