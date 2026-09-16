@@ -13,149 +13,162 @@
   </header>
 
   <main class="layout">
-    <section class="card">
-      <h2>告警通道测试</h2>
-      <p class="hint">
-        使用 <code>config.toml</code> 中已启用的飞书 / PushPlus 配置发送测试消息（修改配置后需重启服务）。
-      </p>
-      <div class="form-actions">
-        <button type="button" id="feishu-test" class="btn">飞书测试消息</button>
-        <button type="button" id="pushplus-test" class="btn">PushPlus 测试消息</button>
-      </div>
-    </section>
+    <nav class="tabs" role="tablist" aria-label="主功能">
+      <button type="button" class="tab active" id="tab-checks" role="tab" aria-selected="true" aria-controls="panel-checks">
+        检查条目
+      </button>
+      <button type="button" class="tab" id="tab-alerts" role="tab" aria-selected="false" aria-controls="panel-alerts">
+        告警历史
+      </button>
+    </nav>
 
-    <section class="card" id="alert-history-panel">
-      <div class="card-head">
-        <h2>告警历史</h2>
-        <button type="button" id="alert-history-refresh" class="btn">刷新</button>
-      </div>
-      <div class="filter-chips" id="alert-kind-filters" role="group" aria-label="告警类型筛选">
-        <button type="button" class="btn chip active" data-kind="">全部</button>
-        <button type="button" class="btn chip" data-kind="down">故障告警</button>
-        <button type="button" class="btn chip" data-kind="recovery">恢复通知</button>
-        <button type="button" class="btn chip" data-kind="alive_ping">每日签到</button>
-        <button type="button" class="btn chip" data-kind="test">通道测试</button>
-      </div>
-      <p class="hint" id="alert-history-meta"></p>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>类型</th>
-            <th>渠道</th>
-            <th>状态</th>
-            <th>检查项</th>
-            <th>内容</th>
-          </tr>
-        </thead>
-        <tbody id="alert-history-body"></tbody>
-      </table>
-      <div class="form-actions history-actions">
-        <button type="button" id="alert-history-more" class="btn" hidden>加载更多</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <h2>检查条目</h2>
-        <button type="button" id="btn-refresh" class="btn">刷新状态</button>
-      </div>
-
-      <p class="hint" id="check-form-hint">填写下方表单添加新的健康检查。</p>
-      <form id="check-form" class="form-grid">
-        <label>
-          名称
-          <input type="text" id="check-name" required placeholder="例如：官网 API" />
-        </label>
-        <label>
-          URL
-          <input type="url" id="check-url" required placeholder="https://example.com/health" />
-        </label>
-        <label>
-          方法
-          <select id="check-method">
-            <option value="GET">GET</option>
-            <option value="HEAD">HEAD</option>
-            <option value="POST">POST</option>
-          </select>
-        </label>
-        <label>
-          期望状态码
-          <input type="number" id="check-status" value="200" min="100" max="599" />
-        </label>
-        <label>
-          检查间隔（秒）
-          <input type="number" id="check-interval" value="60" min="10" />
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" id="check-enabled" checked />
-          启用
-        </label>
-      </form>
-
-      <div class="checkpoint-editor">
-        <div class="card-head checkpoint-head">
-          <h3>检查点（响应体）</h3>
-          <button type="button" id="checkpoint-add" class="btn">添加检查点</button>
+    <div id="panel-checks" class="tab-panel" role="tabpanel" aria-labelledby="tab-checks">
+      <section class="card">
+        <h2>告警通道测试</h2>
+        <p class="hint">
+          使用 <code>config.toml</code> 中已启用的飞书 / PushPlus 配置发送测试消息（修改配置后需重启服务）。
+        </p>
+        <div class="form-actions">
+          <button type="button" id="feishu-test" class="btn">飞书测试消息</button>
+          <button type="button" id="pushplus-test" class="btn">PushPlus 测试消息</button>
         </div>
-        <p class="hint">状态码符合预期后，按顺序校验响应体；全部通过才视为正常。</p>
-        <table class="table" id="checkpoint-table">
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>检查条目</h2>
+          <button type="button" id="btn-refresh" class="btn">刷新状态</button>
+        </div>
+
+        <p class="hint" id="check-form-hint">填写下方表单添加新的健康检查。</p>
+        <form id="check-form" class="form-grid">
+          <label>
+            名称
+            <input type="text" id="check-name" required placeholder="例如：官网 API" />
+          </label>
+          <label>
+            URL
+            <input type="url" id="check-url" required placeholder="https://example.com/health" />
+          </label>
+          <label>
+            方法
+            <select id="check-method">
+              <option value="GET">GET</option>
+              <option value="HEAD">HEAD</option>
+              <option value="POST">POST</option>
+            </select>
+          </label>
+          <label>
+            期望状态码
+            <input type="number" id="check-status" value="200" min="100" max="599" />
+          </label>
+          <label>
+            检查间隔（秒）
+            <input type="number" id="check-interval" value="60" min="10" />
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" id="check-enabled" checked />
+            启用
+          </label>
+        </form>
+
+        <div class="checkpoint-editor">
+          <div class="card-head checkpoint-head">
+            <h3>检查点（响应体）</h3>
+            <button type="button" id="checkpoint-add" class="btn">添加检查点</button>
+          </div>
+          <p class="hint">状态码符合预期后，按顺序校验响应体；全部通过才视为正常。</p>
+          <table class="table" id="checkpoint-table">
+            <thead>
+              <tr>
+                <th>类型</th>
+                <th>预期值</th>
+                <th>启用</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="checkpoint-body"></tbody>
+          </table>
+        </div>
+
+        <div class="form-actions check-form-actions">
+          <button type="submit" form="check-form" class="btn primary" id="check-submit">添加检查</button>
+          <button type="button" class="btn" id="check-cancel-edit" hidden>取消编辑</button>
+        </div>
+
+        <table class="table" id="checks-table">
           <thead>
             <tr>
-              <th>类型</th>
-              <th>预期值</th>
-              <th>启用</th>
-              <th></th>
+              <th>名称</th>
+              <th>URL</th>
+              <th>状态</th>
+              <th>延迟</th>
+              <th>上次检查</th>
+              <th>操作</th>
             </tr>
           </thead>
-          <tbody id="checkpoint-body"></tbody>
+          <tbody id="checks-body"></tbody>
         </table>
-      </div>
+      </section>
 
-      <div class="form-actions check-form-actions">
-        <button type="submit" form="check-form" class="btn primary" id="check-submit">添加检查</button>
-        <button type="button" class="btn" id="check-cancel-edit" hidden>取消编辑</button>
-      </div>
+      <section class="card" id="history-panel" hidden>
+        <div class="card-head">
+          <h2 id="history-title">检测历史</h2>
+          <button type="button" id="history-close" class="btn">关闭</button>
+        </div>
+        <p class="hint" id="history-meta"></p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>状态</th>
+              <th>延迟</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody id="history-body"></tbody>
+        </table>
+        <div class="form-actions history-actions">
+          <button type="button" id="history-more" class="btn" hidden>加载更多</button>
+        </div>
+      </section>
+    </div>
 
-      <table class="table" id="checks-table">
-        <thead>
-          <tr>
-            <th>名称</th>
-            <th>URL</th>
-            <th>状态</th>
-            <th>延迟</th>
-            <th>上次检查</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody id="checks-body"></tbody>
-      </table>
-    </section>
-
-    <section class="card" id="history-panel" hidden>
-      <div class="card-head">
-        <h2 id="history-title">检测历史</h2>
-        <button type="button" id="history-close" class="btn">关闭</button>
-      </div>
-      <p class="hint" id="history-meta"></p>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>时间</th>
-            <th>状态</th>
-            <th>延迟</th>
-            <th>说明</th>
-          </tr>
-        </thead>
-        <tbody id="history-body"></tbody>
-      </table>
-      <div class="form-actions history-actions">
-        <button type="button" id="history-more" class="btn" hidden>加载更多</button>
-      </div>
-    </section>
+    <div id="panel-alerts" class="tab-panel" role="tabpanel" aria-labelledby="tab-alerts" hidden>
+      <section class="card" id="alert-history-panel">
+        <div class="card-head">
+          <h2>告警历史</h2>
+          <button type="button" id="alert-history-refresh" class="btn">刷新</button>
+        </div>
+        <div class="filter-chips" id="alert-kind-filters" role="group" aria-label="告警类型筛选">
+          <button type="button" class="btn chip active" data-kind="">全部</button>
+          <button type="button" class="btn chip" data-kind="down">故障告警</button>
+          <button type="button" class="btn chip" data-kind="recovery">恢复通知</button>
+          <button type="button" class="btn chip" data-kind="alive_ping">每日签到</button>
+          <button type="button" class="btn chip" data-kind="test">通道测试</button>
+        </div>
+        <p class="hint" id="alert-history-meta"></p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>类型</th>
+              <th>渠道</th>
+              <th>状态</th>
+              <th>检查项</th>
+              <th>内容</th>
+            </tr>
+          </thead>
+          <tbody id="alert-history-body"></tbody>
+        </table>
+        <div class="form-actions history-actions">
+          <button type="button" id="alert-history-more" class="btn" hidden>加载更多</button>
+        </div>
+      </section>
+    </div>
   </main>
 
   <div id="toast" class="toast" hidden></div>
-  <script src="/app.js?v=7"></script>
+  <script src="/app.js?v=8"></script>
 </body>
 </html>

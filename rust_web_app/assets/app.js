@@ -243,10 +243,31 @@ async function loadHistory(append) {
   moreBtn.hidden = historyState.offset >= historyState.total;
 }
 
+function switchMainTab(which) {
+  const checks = which === "checks";
+  document.getElementById("panel-checks").hidden = !checks;
+  document.getElementById("panel-alerts").hidden = checks;
+  const tabChecks = document.getElementById("tab-checks");
+  const tabAlerts = document.getElementById("tab-alerts");
+  tabChecks.classList.toggle("active", checks);
+  tabAlerts.classList.toggle("active", !checks);
+  tabChecks.setAttribute("aria-selected", checks ? "true" : "false");
+  tabAlerts.setAttribute("aria-selected", checks ? "false" : "true");
+  if (!checks) {
+    loadAlertHistory(false).catch((e) => toast(e.message));
+  }
+}
+
+function bindMainTabs() {
+  document.getElementById("tab-checks").addEventListener("click", () => switchMainTab("checks"));
+  document.getElementById("tab-alerts").addEventListener("click", () => switchMainTab("alerts"));
+}
+
 async function openHistory(checkId) {
   const check = await api("/api/checks/" + checkId);
   historyState = { checkId, name: check.name, offset: 0, total: 0, limit: 50 };
   document.getElementById("history-title").textContent = `检测历史 · ${check.name}`;
+  switchMainTab("checks");
   document.getElementById("history-panel").hidden = false;
   await loadHistory(false);
   document.getElementById("history-panel").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -520,9 +541,9 @@ document.getElementById("alert-kind-filters").addEventListener("click", (e) => {
   loadAlertHistory(false).catch((err) => toast(err.message));
 });
 
+bindMainTabs();
 bindAlertTests();
 renderCheckpointRows([]);
 
-loadAlertHistory().catch((e) => toast(e.message));
 loadChecks().catch((e) => toast(e.message));
 setInterval(() => loadChecks().catch(() => {}), 15000);
