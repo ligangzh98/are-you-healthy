@@ -316,8 +316,54 @@ select {
   margin-top: 0.75rem;
 }
 
-#history-panel[hidden] {
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.modal[hidden] {
   display: none !important;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(8, 12, 18, 0.72);
+  cursor: pointer;
+}
+
+.modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: min(920px, 100%);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+}
+
+.modal-dialog .card-head {
+  flex-shrink: 0;
+}
+
+.modal-table-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0.5rem;
+}
+
+body.modal-open {
+  overflow: hidden;
 }
 
 .status-pill {

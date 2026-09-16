@@ -263,20 +263,30 @@ function bindMainTabs() {
   document.getElementById("tab-alerts").addEventListener("click", () => switchMainTab("alerts"));
 }
 
+function closeHistoryModal() {
+  document.getElementById("history-modal").hidden = true;
+  document.body.classList.remove("modal-open");
+  historyState.checkId = null;
+}
+
+function bindHistoryModal() {
+  document.getElementById("history-close").addEventListener("click", closeHistoryModal);
+  document.getElementById("history-modal-backdrop").addEventListener("click", closeHistoryModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !document.getElementById("history-modal").hidden) {
+      closeHistoryModal();
+    }
+  });
+}
+
 async function openHistory(checkId) {
   const check = await api("/api/checks/" + checkId);
   historyState = { checkId, name: check.name, offset: 0, total: 0, limit: 50 };
   document.getElementById("history-title").textContent = `检测历史 · ${check.name}`;
-  switchMainTab("checks");
-  document.getElementById("history-panel").hidden = false;
+  document.getElementById("history-modal").hidden = false;
+  document.body.classList.add("modal-open");
   await loadHistory(false);
-  document.getElementById("history-panel").scrollIntoView({ behavior: "smooth", block: "start" });
 }
-
-document.getElementById("history-close").addEventListener("click", () => {
-  document.getElementById("history-panel").hidden = true;
-  historyState.checkId = null;
-});
 
 document.getElementById("history-more").addEventListener("click", () => {
   loadHistory(true).catch((e) => toast(e.message));
@@ -542,6 +552,7 @@ document.getElementById("alert-kind-filters").addEventListener("click", (e) => {
 });
 
 bindMainTabs();
+bindHistoryModal();
 bindAlertTests();
 renderCheckpointRows([]);
 
