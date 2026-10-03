@@ -126,3 +126,52 @@ impl CheckpointKind {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_status_roundtrip() {
+        for s in ["up", "down", "error"] {
+            let parsed = CheckStatus::parse(s).unwrap();
+            assert_eq!(parsed.as_str(), s);
+        }
+        assert!(CheckStatus::parse("UP").is_none());
+    }
+
+    #[test]
+    fn alert_kind_roundtrip() {
+        for s in ["down", "recovery", "alive_ping", "test"] {
+            let parsed = AlertKind::parse(s).unwrap();
+            assert_eq!(parsed.as_str(), s);
+        }
+        assert!(AlertKind::parse("  down  ").is_some());
+        assert!(AlertKind::parse("all").is_none());
+    }
+
+    #[test]
+    fn checkpoint_kind_roundtrip() {
+        for s in [
+            "contains",
+            "equals",
+            "not_contains",
+            "regex",
+            "not_regex",
+        ] {
+            let parsed = CheckpointKind::parse(s).unwrap();
+            assert_eq!(parsed.as_str(), s);
+        }
+        assert_eq!(
+            CheckpointKind::parse("REGEX"),
+            Some(CheckpointKind::Regex)
+        );
+    }
+
+    #[test]
+    fn delivery_status_as_str() {
+        assert_eq!(DeliveryStatus::Ok.as_str(), "ok");
+        assert!(DeliveryStatus::Ok.is_ok());
+        assert!(!DeliveryStatus::Failed.is_ok());
+    }
+}
