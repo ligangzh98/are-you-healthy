@@ -1,44 +1,31 @@
+use crate::types::CheckpointKind;
 use regex::Regex;
 
 #[derive(Debug, Clone)]
 pub struct CheckpointRule {
-    pub kind: String,
+    pub kind: CheckpointKind,
     pub value: String,
 }
 
-pub const KINDS: &[&str] = &[
-    "contains",
-    "equals",
-    "not_contains",
-    "regex",
-    "not_regex",
-];
-
-pub fn normalize_kind(kind: &str) -> Option<String> {
-    let k = kind.trim().to_lowercase();
-    if KINDS.contains(&k.as_str()) {
-        Some(k)
-    } else {
-        None
-    }
+pub fn normalize_kind(kind: &str) -> Option<CheckpointKind> {
+    CheckpointKind::parse(kind)
 }
 
 /// 对响应体执行全部检查点，返回第一条失败说明。
 pub fn evaluate_all(body: &str, rules: &[CheckpointRule]) -> Option<String> {
     for (i, rule) in rules.iter().enumerate() {
-        if let Some(msg) = evaluate_one(body, &rule.kind, &rule.value, i + 1) {
+        if let Some(msg) = evaluate_one(body, rule.kind, &rule.value, i + 1) {
             return Some(msg);
         }
     }
     None
 }
 
-fn evaluate_one(body: &str, kind: &str, expected: &str, index: usize) -> Option<String> {
-    let kind = kind.to_lowercase();
+fn evaluate_one(body: &str, kind: CheckpointKind, expected: &str, index: usize) -> Option<String> {
     let label = format!("检查点 #{}", index);
 
-    match kind.as_str() {
-        "contains" => {
+    match kind {
+        CheckpointKind::Contains => {
             if body.contains(expected) {
                 None
             } else {
@@ -49,7 +36,7 @@ fn evaluate_one(body: &str, kind: &str, expected: &str, index: usize) -> Option<
                 ))
             }
         }
-        "equals" => {
+        CheckpointKind::Equals => {
             if body == expected {
                 None
             } else {
@@ -61,7 +48,7 @@ fn evaluate_one(body: &str, kind: &str, expected: &str, index: usize) -> Option<
                 ))
             }
         }
-        "not_contains" => {
+        CheckpointKind::NotContains => {
             if !body.contains(expected) {
                 None
             } else {
@@ -72,7 +59,7 @@ fn evaluate_one(body: &str, kind: &str, expected: &str, index: usize) -> Option<
                 ))
             }
         }
-        "regex" => match Regex::new(expected) {
+        CheckpointKind::Regex => match Regex::new(expected) {
             Ok(re) => {
                 if re.is_match(body) {
                     None
@@ -82,7 +69,7 @@ fn evaluate_one(body: &str, kind: &str, expected: &str, index: usize) -> Option<
             }
             Err(e) => Some(format!("{} [正则匹配] 无效正则: {}", label, e)),
         },
-        "not_regex" => match Regex::new(expected) {
+        CheckpointKind::NotRegex => match Regex::new(expected) {
             Ok(re) => {
                 if !re.is_match(body) {
                     None
@@ -92,7 +79,6 @@ fn evaluate_one(body: &str, kind: &str, expected: &str, index: usize) -> Option<
             }
             Err(e) => Some(format!("{} [正则不匹配] 无效正则: {}", label, e)),
         },
-        other => Some(format!("{} 未知类型: {}", label, other)),
     }
 }
 

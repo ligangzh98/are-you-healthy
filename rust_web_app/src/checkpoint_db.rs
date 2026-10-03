@@ -1,4 +1,5 @@
 use crate::checkpoints::CheckpointRule;
+use crate::types::CheckpointKind;
 use crate::models::CheckCheckpoint;
 use sqlx::SqlitePool;
 
@@ -16,9 +17,11 @@ pub async fn load_enabled_rules(pool: &SqlitePool, check_id: i64) -> Vec<Checkpo
     let rows = list_for_check(pool, check_id).await.unwrap_or_default();
     rows.into_iter()
         .filter(|r| r.enabled)
-        .map(|r| CheckpointRule {
-            kind: r.kind,
-            value: r.value,
+        .filter_map(|r| {
+            CheckpointKind::parse(&r.kind).map(|kind| CheckpointRule {
+                kind,
+                value: r.value,
+            })
         })
         .collect()
 }

@@ -1,4 +1,5 @@
 use crate::checkpoints::{evaluate_all, CheckpointRule};
+use crate::types::CheckStatus;
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, Response};
 use std::str::FromStr;
@@ -9,7 +10,7 @@ const SEND_RETRY_COUNT: u32 = 2;
 const SEND_RETRY_DELAY: Duration = Duration::from_millis(3000);
 
 pub struct CheckProbeResult {
-    pub status: String,
+    pub status: CheckStatus,
     pub response_ms: Option<i64>,
     pub error: Option<String>,
     pub request_message: String,
@@ -45,7 +46,7 @@ pub async fn run_probe(
         Ok(m) => m,
         Err(_) => {
             return CheckProbeResult {
-                status: "error".into(),
+                status: CheckStatus::Error,
                 response_ms: None,
                 error: Some(format!("unsupported method: {}", method_upper)),
                 request_message,
@@ -74,18 +75,18 @@ pub async fn run_probe(
 
             let (status, error) = if code != expected_status {
                 (
-                    "down".to_string(),
+                    CheckStatus::Down,
                     Some(format!("status {} (expected {})", code, expected_status)),
                 )
             } else if !checkpoints.is_empty() && head_only {
                 (
-                    "down".to_string(),
+                    CheckStatus::Down,
                     Some("HEAD 请求无响应体，无法执行检查点".into()),
                 )
             } else if let Some(cp_err) = evaluate_all(&body_for_check, checkpoints) {
-                ("down".to_string(), Some(cp_err))
+                (CheckStatus::Down, Some(cp_err))
             } else {
-                ("up".to_string(), None)
+                (CheckStatus::Up, None)
             };
 
             CheckProbeResult {
@@ -97,7 +98,7 @@ pub async fn run_probe(
             }
         }
         Err(e) => CheckProbeResult {
-            status: "down".into(),
+            status: CheckStatus::Down,
             response_ms: None,
             error: Some(e.to_string()),
             request_message,

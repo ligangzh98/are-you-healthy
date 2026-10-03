@@ -1,4 +1,5 @@
 use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
+use crate::types::AlertKind;
 use crate::config;
 use crate::feishu;
 use chrono::{FixedOffset, NaiveTime, Utc};
@@ -68,7 +69,7 @@ async fn send_ping(
     }
 
     let ctx = AlertLogContext {
-        kind: "alive_ping",
+        kind: AlertKind::AlivePing,
         check_id: None,
         check_name: None,
     };

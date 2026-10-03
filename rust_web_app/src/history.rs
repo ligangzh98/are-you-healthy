@@ -1,4 +1,5 @@
 use crate::config::HistoryConfig;
+use crate::types::CheckStatus;
 use chrono::{Duration, Utc};
 use sqlx::SqlitePool;
 use tracing::info;
@@ -23,7 +24,7 @@ impl HistoryRetention {
 pub async fn insert_run(
     pool: &SqlitePool,
     check_id: i64,
-    status: &str,
+    status: CheckStatus,
     response_ms: Option<i64>,
     error: &Option<String>,
     checked_at: &str,
@@ -35,7 +36,7 @@ pub async fn insert_run(
          request_message, response_message) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(check_id)
-    .bind(status)
+    .bind(status.as_str())
     .bind(response_ms)
     .bind(error)
     .bind(checked_at)

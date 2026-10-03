@@ -4,10 +4,11 @@ use tracing::warn;
 
 use crate::feishu;
 use crate::pushplus;
+use crate::types::{AlertChannel, AlertKind, DeliveryStatus};
 
 #[derive(Clone, Debug)]
 pub struct AlertLogContext {
-    pub kind: &'static str,
+    pub kind: AlertKind,
     pub check_id: Option<i64>,
     pub check_name: Option<String>,
 }
@@ -22,13 +23,13 @@ pub async fn deliver_feishu(
     let sent_at = Utc::now().to_rfc3339();
     let result = feishu::send_text_alert(client, webhook_url, message).await;
     let (status, error) = match result {
-        Ok(()) => ("ok", None),
-        Err(e) => ("failed", Some(e.to_string())),
+        Ok(()) => (DeliveryStatus::Ok, None),
+        Err(e) => (DeliveryStatus::Failed, Some(e.to_string())),
     };
     if let Err(e) = insert_row(
         pool,
         ctx,
-        "feishu",
+        AlertChannel::Feishu,
         status,
         None,
         message,
@@ -39,7 +40,7 @@ pub async fn deliver_feishu(
     {
         warn!("alert history insert failed: {}", e);
     }
-    status == "ok"
+    status.is_ok()
 }
 
 pub async fn deliver_pushplus(
@@ -53,13 +54,13 @@ pub async fn deliver_pushplus(
     let sent_at = Utc::now().to_rfc3339();
     let result = pushplus::send_message(client, token, title, content).await;
     let (status, error) = match result {
-        Ok(()) => ("ok", None),
-        Err(e) => ("failed", Some(e.to_string())),
+        Ok(()) => (DeliveryStatus::Ok, None),
+        Err(e) => (DeliveryStatus::Failed, Some(e.to_string())),
     };
     if let Err(e) = insert_row(
         pool,
         ctx,
-        "pushplus",
+        AlertChannel::Pushplus,
         status,
         Some(title),
         content,
@@ -70,14 +71,14 @@ pub async fn deliver_pushplus(
     {
         warn!("alert history insert failed: {}", e);
     }
-    status == "ok"
+    status.is_ok()
 }
 
 async fn insert_row(
     pool: &SqlitePool,
     ctx: &AlertLogContext,
-    channel: &str,
-    status: &str,
+    channel: AlertChannel,
+    status: DeliveryStatus,
     title: Option<&str>,
     message: &str,
     error: Option<&str>,
@@ -87,9 +88,9 @@ async fn insert_row(
         "INSERT INTO alert_deliveries (kind, channel, status, title, message, error, \
          check_id, check_name, sent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
-    .bind(ctx.kind)
-    .bind(channel)
-    .bind(status)
+    .bind(ctx.kind.as_str())
+    .bind(channel.as_str())
+    .bind(status.as_str())
     .bind(title)
     .bind(message)
     .bind(error)

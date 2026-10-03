@@ -5,6 +5,7 @@ use crate::history;
 use crate::config::{FeishuConfig, PushplusConfig};
 use crate::models::HealthCheck;
 use crate::probe;
+use crate::types::{AlertKind, CheckStatus};
 use chrono::Utc;
 use sqlx::SqlitePool;
 
@@ -68,14 +69,17 @@ pub async fn execute_health_check(
     let error = probe.error;
 
     let checked_at = Utc::now().to_rfc3339();
-    let prev_status = check.last_status.as_deref();
+    let prev_status = check
+        .last_status
+        .as_deref()
+        .and_then(CheckStatus::parse);
 
     if let Err(e) = sqlx::query(
         "UPDATE health_checks SET last_checked_at = ?, last_status = ?, \
          last_response_ms = ?, last_error = ? WHERE id = ?",
     )
     .bind(&checked_at)
-    .bind(&status)
+    .bind(status.as_str())
     .bind(response_ms)
     .bind(&error)
     .bind(check.id)
@@ -92,7 +96,7 @@ pub async fn execute_health_check(
     if let Err(e) = history::insert_run(
         pool,
         check.id,
-        &status,
+        status,
         response_ms,
         &error,
         &checked_at,
@@ -108,8 +112,8 @@ pub async fn execute_health_check(
         );
     }
 
-    let became_down = status == "down" && prev_status != Some("down");
-    let still_down = status == "down";
+    let became_down = status.is_down() && prev_status != Some(CheckStatus::Down);
+    let still_down = status.is_down();
 
     if still_down {
         send_down_alerts(
@@ -123,7 +127,7 @@ pub async fn execute_health_check(
             &error,
         )
         .await;
-    } else if prev_status == Some("down") {
+    } else if prev_status == Some(CheckStatus::Down) {
         send_recovery_alerts(pool, client, check, feishu, pushplus_cfg, &checked_at).await;
     }
 }
@@ -153,7 +157,7 @@ async fn send_down_alerts(
     let push_body = format_down_content(&check.name, &check.url, error);
 
     let ctx = AlertLogContext {
-        kind: "down",
+        kind: AlertKind::Down,
         check_id: Some(check.id),
         check_name: Some(check.name.clone()),
     };
@@ -212,7 +216,7 @@ async fn send_recovery_alerts(
     );
 
     let ctx = AlertLogContext {
-        kind: "recovery",
+        kind: AlertKind::Recovery,
         check_id: Some(check.id),
         check_name: Some(check.name.clone()),
     };

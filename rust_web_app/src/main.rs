@@ -11,6 +11,7 @@ mod history;
 mod models;
 mod probe;
 mod pushplus;
+mod types;
 
 use axum::Router;
 use std::net::SocketAddr;

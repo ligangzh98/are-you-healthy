@@ -4,6 +4,7 @@ use crate::checker;
 use crate::config;
 use crate::feishu;
 use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
+use crate::types::AlertKind;
 use crate::models::{
     AlertDelivery, AlertHistoryResponse, CheckHistoryResponse, CheckRun, CheckpointsResponse,
     CreateHealthCheck, CheckpointInput, HealthCheck, ReplaceCheckpointsBody, UpdateHealthCheck,
@@ -149,7 +150,7 @@ fn normalize_checkpoint_inputs(items: Vec<CheckpointInput>) -> Result<Vec<Checkp
             "不支持的检查点类型，可选: contains, equals, not_contains, regex, not_regex",
         ))?;
         out.push(CheckpointInput {
-            kind,
+            kind: kind.as_str().to_string(),
             value: item.value,
             enabled: item.enabled,
         });
@@ -190,15 +191,16 @@ struct AlertHistoryQuery {
     kind: Option<String>,
 }
 
-fn normalize_alert_kind_filter(kind: Option<String>) -> Result<Option<String>, AppError> {
-    let kind = kind.map(|k| k.trim().to_string()).filter(|k| !k.is_empty() && k != "all");
-    if let Some(ref k) = kind {
-        const ALLOWED: &[&str] = &["down", "recovery", "alive_ping", "test"];
-        if !ALLOWED.contains(&k.as_str()) {
-            return Err(AppError::BadRequest("invalid alert kind filter"));
-        }
+fn normalize_alert_kind_filter(kind: Option<String>) -> Result<Option<AlertKind>, AppError> {
+    let raw = kind
+        .map(|k| k.trim().to_string())
+        .filter(|k| !k.is_empty() && k != "all");
+    match raw {
+        None => Ok(None),
+        Some(k) => AlertKind::parse(&k)
+            .ok_or(AppError::BadRequest("invalid alert kind filter"))
+            .map(Some),
     }
-    Ok(kind)
 }
 
 async fn list_check_history(
@@ -262,10 +264,10 @@ async fn list_alert_history(
     let offset = query.offset.unwrap_or(0);
     let kind = normalize_alert_kind_filter(query.kind)?;
 
-    let total: (i64,) = match &kind {
+    let total: (i64,) = match kind {
         Some(k) => {
             sqlx::query_as("SELECT COUNT(*) FROM alert_deliveries WHERE kind = ?")
-                .bind(k)
+                .bind(k.as_str())
                 .fetch_one(&state.pool)
                 .await?
         }
@@ -274,14 +276,14 @@ async fn list_alert_history(
             .await?,
     };
 
-    let items = match &kind {
+    let items = match kind {
         Some(k) => {
             sqlx::query_as::<_, AlertDelivery>(
                 "SELECT id, kind, channel, status, title, message, error, check_id, check_name, \
                  sent_at FROM alert_deliveries WHERE kind = ? ORDER BY sent_at DESC LIMIT ? \
                  OFFSET ?",
             )
-            .bind(k)
+            .bind(k.as_str())
             .bind(limit)
             .bind(offset)
             .fetch_all(&state.pool)
@@ -337,7 +339,7 @@ async fn test_feishu(State(state): State<AppState>) -> Result<StatusCode, AppErr
     );
 
     let ctx = AlertLogContext {
-        kind: "test",
+        kind: AlertKind::Test,
         check_id: None,
         check_name: None,
     };
@@ -365,7 +367,7 @@ async fn test_pushplus(State(state): State<AppState>) -> Result<StatusCode, AppE
     );
 
     let ctx = AlertLogContext {
-        kind: "test",
+        kind: AlertKind::Test,
         check_id: None,
         check_name: None,
     };
