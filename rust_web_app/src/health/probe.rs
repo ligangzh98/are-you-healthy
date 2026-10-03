@@ -6,8 +6,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 /// 传输失败后的额外重试次数（不含首次请求）。
-const SEND_RETRY_COUNT: u32 = 2;
-const SEND_RETRY_DELAY: Duration = Duration::from_millis(3000);
+const SEND_RETRY_COUNT: u32 = 5;
+const SEND_RETRY_DELAY: Duration = Duration::from_millis(5000);
 
 pub struct CheckProbeResult {
     pub status: CheckStatus,
