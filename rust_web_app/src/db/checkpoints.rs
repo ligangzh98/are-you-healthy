@@ -1,6 +1,6 @@
-use crate::checkpoints::CheckpointRule;
-use crate::types::CheckpointKind;
-use crate::models::CheckCheckpoint;
+use crate::domain::models::{CheckCheckpoint, CheckpointInput};
+use crate::domain::types::CheckpointKind;
+use crate::health::CheckpointRule;
 use sqlx::SqlitePool;
 
 pub async fn list_for_check(pool: &SqlitePool, check_id: i64) -> Result<Vec<CheckCheckpoint>, sqlx::Error> {
@@ -29,7 +29,7 @@ pub async fn load_enabled_rules(pool: &SqlitePool, check_id: i64) -> Vec<Checkpo
 pub async fn replace_for_check(
     pool: &SqlitePool,
     check_id: i64,
-    items: &[crate::models::CheckpointInput],
+    items: &[CheckpointInput],
 ) -> Result<(), sqlx::Error> {
     sqlx::query("DELETE FROM check_checkpoints WHERE check_id = ?")
         .bind(check_id)

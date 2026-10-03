@@ -2,9 +2,8 @@ use chrono::Utc;
 use sqlx::SqlitePool;
 use tracing::warn;
 
-use crate::feishu;
-use crate::pushplus;
-use crate::types::{AlertChannel, AlertKind, DeliveryStatus};
+use crate::domain::types::{AlertChannel, AlertKind, DeliveryStatus};
+use super::{feishu, pushplus};
 
 #[derive(Clone, Debug)]
 pub struct AlertLogContext {

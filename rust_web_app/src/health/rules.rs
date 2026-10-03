@@ -1,4 +1,4 @@
-use crate::types::CheckpointKind;
+use crate::domain::types::CheckpointKind;
 use regex::Regex;
 
 #[derive(Debug, Clone)]

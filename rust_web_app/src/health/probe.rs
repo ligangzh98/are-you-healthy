@@ -1,5 +1,5 @@
-use crate::checkpoints::{evaluate_all, CheckpointRule};
-use crate::types::CheckStatus;
+use super::rules::{evaluate_all, CheckpointRule};
+use crate::domain::types::CheckStatus;
 use reqwest::header::HeaderMap;
 use reqwest::{Client, Method, Response};
 use std::str::FromStr;

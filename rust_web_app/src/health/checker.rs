@@ -1,16 +1,15 @@
-use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
-use crate::checkpoint_db;
-use crate::feishu;
-use crate::history;
 use crate::config::{FeishuConfig, PushplusConfig};
-use crate::models::HealthCheck;
-use crate::probe;
-use crate::types::{AlertKind, CheckStatus};
+use crate::db;
+use crate::domain::models::HealthCheck;
+use crate::domain::types::{AlertKind, CheckStatus};
+use crate::notify::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
+use crate::notify::feishu;
+use super::probe;
 use chrono::Utc;
 use sqlx::SqlitePool;
 
 pub async fn scheduler_tick(pool: SqlitePool, client: reqwest::Client) {
-    let checks = sqlx::query_as::<_, crate::models::HealthCheck>(
+    let checks = sqlx::query_as::<_, HealthCheck>(
         "SELECT id, name, url, method, expected_status, interval_secs, enabled, \
          last_checked_at, last_status, last_response_ms, last_error, created_at \
          FROM health_checks WHERE enabled = 1",
@@ -55,7 +54,7 @@ pub async fn execute_health_check(
     feishu: Option<&FeishuConfig>,
     pushplus_cfg: Option<&PushplusConfig>,
 ) {
-    let checkpoint_rules = checkpoint_db::load_enabled_rules(pool, check.id).await;
+    let checkpoint_rules = db::load_enabled_rules(pool, check.id).await;
     let probe = probe::run_probe(
         client,
         &check.method,
@@ -93,7 +92,7 @@ pub async fn execute_health_check(
         );
     }
 
-    if let Err(e) = history::insert_run(
+    if let Err(e) = db::insert_run(
         pool,
         check.id,
         status,

@@ -1,18 +1,8 @@
-mod alert_history;
-mod alive_ping;
-mod api;
-mod checkpoint_db;
-mod checkpoints;
-mod checker;
-mod config;
-mod db;
-mod feishu;
-mod history;
-mod models;
-mod probe;
-mod pushplus;
-mod types;
-
+use rust_web_app::config;
+use rust_web_app::db;
+use rust_web_app::health::checker;
+use rust_web_app::http;
+use rust_web_app::jobs::alive_ping;
 use axum::Router;
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
@@ -40,8 +30,8 @@ async fn main() -> anyhow::Result<()> {
         .timeout(std::time::Duration::from_secs(cfg.http_client.timeout_secs))
         .build()?;
 
-    let history_retention = history::HistoryRetention::from_config(&cfg.history);
-    history::spawn_cleanup_job(pool.clone(), history_retention);
+    let history_retention = db::HistoryRetention::from_config(&cfg.history);
+    db::spawn_cleanup_job(pool.clone(), history_retention);
 
     checker::spawn_scheduler(pool.clone(), client.clone(), cfg.scheduler.tick_secs);
     alive_ping::spawn_job(client.clone(), pool.clone());
@@ -51,13 +41,13 @@ async fn main() -> anyhow::Result<()> {
 
     let spa = ServeDir::new(&assets).not_found_service(ServeFile::new(index));
 
-    let state = api::AppState {
+    let state = http::AppState {
         pool,
         http: client,
     };
 
     let app = Router::new()
-        .merge(api::router())
+        .merge(http::router())
         .fallback_service(spa)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())

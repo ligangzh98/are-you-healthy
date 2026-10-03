@@ -1,14 +1,13 @@
-use crate::checkpoint_db;
-use crate::checkpoints;
-use crate::checker;
 use crate::config;
-use crate::feishu;
-use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
-use crate::types::AlertKind;
-use crate::models::{
+use crate::db;
+use crate::domain::models::{
     AlertDelivery, AlertHistoryResponse, CheckHistoryResponse, CheckRun, CheckpointsResponse,
-    CreateHealthCheck, CheckpointInput, HealthCheck, ReplaceCheckpointsBody, UpdateHealthCheck,
+    CheckpointInput, CreateHealthCheck, HealthCheck, ReplaceCheckpointsBody, UpdateHealthCheck,
 };
+use crate::domain::types::AlertKind;
+use crate::health::{checker, normalize_kind};
+use crate::notify::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
+use crate::notify::feishu;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
@@ -98,7 +97,7 @@ async fn create_check(
 
     if let Some(cps) = body.checkpoints {
         let normalized = normalize_checkpoint_inputs(cps)?;
-        checkpoint_db::replace_for_check(&state.pool, id, &normalized).await?;
+        db::replace_for_check(&state.pool, id, &normalized).await?;
     }
 
     get_check(State(state), Path(id)).await.map(|j| (StatusCode::CREATED, j))
@@ -134,7 +133,7 @@ async fn update_check(
 
     if let Some(cps) = body.checkpoints {
         let normalized = normalize_checkpoint_inputs(cps)?;
-        checkpoint_db::replace_for_check(&state.pool, id, &normalized).await?;
+        db::replace_for_check(&state.pool, id, &normalized).await?;
     }
 
     get_check(State(state), Path(id)).await
@@ -146,7 +145,7 @@ fn normalize_checkpoint_inputs(items: Vec<CheckpointInput>) -> Result<Vec<Checkp
         if item.value.trim().is_empty() {
             return Err(AppError::BadRequest("检查点预期值不能为空"));
         }
-        let kind = checkpoints::normalize_kind(&item.kind).ok_or(AppError::BadRequest(
+        let kind = normalize_kind(&item.kind).ok_or(AppError::BadRequest(
             "不支持的检查点类型，可选: contains, equals, not_contains, regex, not_regex",
         ))?;
         out.push(CheckpointInput {
@@ -163,7 +162,7 @@ async fn list_checkpoints(
     Path(id): Path<i64>,
 ) -> Result<Json<CheckpointsResponse>, AppError> {
     let _ = get_check(State(state.clone()), Path(id)).await?;
-    let rows = checkpoint_db::list_for_check(&state.pool, id).await?;
+    let rows = db::list_for_check(&state.pool, id).await?;
     Ok(Json(CheckpointsResponse { checkpoints: rows }))
 }
 
@@ -174,7 +173,7 @@ async fn replace_checkpoints(
 ) -> Result<Json<CheckpointsResponse>, AppError> {
     let _ = get_check(State(state.clone()), Path(id)).await?;
     let normalized = normalize_checkpoint_inputs(body.checkpoints)?;
-    checkpoint_db::replace_for_check(&state.pool, id, &normalized).await?;
+    db::replace_for_check(&state.pool, id, &normalized).await?;
     list_checkpoints(State(state), Path(id)).await
 }
 

@@ -1,7 +1,7 @@
-use crate::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
-use crate::types::AlertKind;
 use crate::config;
-use crate::feishu;
+use crate::domain::types::AlertKind;
+use crate::notify::alert_history::{AlertLogContext, deliver_feishu, deliver_pushplus};
+use crate::notify::feishu;
 use chrono::{FixedOffset, NaiveTime, Utc};
 use sqlx::SqlitePool;
 use std::path::PathBuf;
