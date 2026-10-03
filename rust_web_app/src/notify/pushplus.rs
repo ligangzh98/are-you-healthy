@@ -59,10 +59,10 @@ pub async fn send_message(
         .json(&body)
         .send()
         .await
-        .context("pushplus request")?;
+        .context("pushplus request failed")?;
 
     let status = resp.status();
-    let text = resp.text().await.context("read pushplus response")?;
+    let text = resp.text().await.context("read pushplus response failed")?;
     debug!("pushplus response http={} body={}", status, text);
 
     let parsed = serde_json::from_str::<PushplusResponse>(&text)
