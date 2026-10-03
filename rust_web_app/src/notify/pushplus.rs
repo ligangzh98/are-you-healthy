@@ -1,9 +1,12 @@
 use anyhow::Context;
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::time::Duration;
 use tracing::debug;
 
 const SEND_URL: &str = "https://www.pushplus.plus/send";
+const SEND_RETRY_COUNT: u32 = 2;
+const SEND_RETRY_DELAY: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Deserialize)]
 struct PushplusResponse {
@@ -54,12 +57,20 @@ pub async fn send_message(
         "channel": "wechat",
     });
 
-    let resp = client
-        .post(SEND_URL)
-        .json(&body)
-        .send()
-        .await
-        .context("pushplus request failed")?;
+    let mut send_result = client.post(SEND_URL).json(&body).send().await;
+    let mut attempt = 0u32;
+    while send_result.is_err() && attempt < SEND_RETRY_COUNT {
+        debug!(
+            "pushplus send failed (attempt {}), retrying in {}s: {}",
+            attempt + 1,
+            SEND_RETRY_DELAY.as_secs(),
+            send_result.as_ref().unwrap_err()
+        );
+        tokio::time::sleep(SEND_RETRY_DELAY).await;
+        attempt += 1;
+        send_result = client.post(SEND_URL).json(&body).send().await;
+    }
+    let resp = send_result.context("pushplus request failed")?;
 
     let status = resp.status();
     let text = resp.text().await.context("read pushplus response failed")?;
